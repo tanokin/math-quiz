@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Math Action RPG</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <div id="ui-layer">
+        <!-- Story Screen -->
+        <div id="story-screen" class="screen">
+            <div class="story-box">
+                <h1 style="color: #FFD700; font-family: serif; font-size: 36px; text-shadow: 2px 2px 4px #000;">王国からの緊急依頼</h1>
+                <div class="story-images">
+                    <span>👸</span> ➔ <span>🐸</span>
+                </div>
+                <p>大変です！お姫様が悪いモンスターの呪いで<br>カエルに変えられてしまいました！</p>
+                <p>広大なダンジョンに隠された<strong style="color: #00ffff;">「知識のクリスタル」</strong>を5つ探し出し、<br>クイズに正解して呪いを解いてください！</p>
+                <button id="btn-story-next" class="primary-btn">冒険へ出発する</button>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen hidden">
+            <h1 style="color: white; font-family: serif; font-size: 50px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">MATH HERO</h1>
+            <p style="color: #ccc; font-size: 24px;">Action RPG & Quiz</p>
+            <button id="btn-start" class="primary-btn">ぼうけんへ出発！</button>
+        </div>
+
+        <div id="hud" class="hidden">
+            <!-- Top Left: Player Status -->
+            <div id="player-status">
+                <div class="portrait">
+                    <img src="assets/swordsman.png" alt="Player">
+                </div>
+                <div class="bars">
+                    <div class="health-bar-bg"><div class="health-bar-fill"></div></div>
+                    <div style="color: white; font-weight: bold; text-shadow: 1px 1px 2px black;">ステージ <span id="level-count">1</span> ・ クリスタル: <span id="progress-count">0</span>/5</div>
+                </div>
+            </div>
+
+            <!-- Quiz UI -->
+            <div id="quiz-ui" class="hidden">
+                <div id="timer-box">TIME: <span id="time-count">60</span>s</div>
+                <div id="question-box">
+                    <h2 id="question-text">Question Text</h2>
+                </div>
+            </div>
+            
+            <div id="instruction-box">
+                <p id="instruction-text">クリスタルを探してね！</p>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div id="controls" class="hidden">
+            <div id="joystick-zone"></div>
+            
+            <div id="action-buttons">
+                <button id="btn-attack" class="action-btn large-btn">⚔️</button>
+            </div>
+            
+            <div id="drag-hint">ここをドラッグして移動</div>
+        </div>
+
+        <!-- Game Over / Clear Screens -->
+        <div id="game-over-screen" class="screen hidden">
+            <h1 id="game-over-title" style="color: #ff3333; font-family: serif;">つぎはがんばろう！</h1>
+            <p id="final-score-wrap">スコア: <span id="final-score">0</span></p>
+            <button id="btn-restart" class="primary-btn">もう一度！</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

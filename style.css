@@ -1,0 +1,254 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+
+#game-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    z-index: 10;
+}
+
+.story-box {
+    background: rgba(20, 20, 30, 0.9);
+    border: 3px solid #FFD700;
+    border-radius: 15px;
+    padding: 40px;
+    text-align: center;
+    color: white;
+    max-width: 80%;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+}
+
+.story-box p {
+    font-size: 20px;
+    line-height: 1.6;
+    margin: 20px 0;
+}
+
+.story-images {
+    font-size: 50px;
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.primary-btn {
+    margin-top: 30px;
+    padding: 15px 40px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+    background: linear-gradient(45deg, #e67e22, #d35400);
+    border: 2px solid #f1c40f;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    transition: transform 0.1s, filter 0.1s;
+}
+
+.primary-btn:active {
+    transform: scale(0.95);
+    filter: brightness(0.8);
+}
+
+#player-status {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: 40px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.portrait {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #f1c40f;
+    background: #333;
+}
+
+.portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bars {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 150px;
+}
+
+.health-bar-bg {
+    width: 100%;
+    height: 15px;
+    background: #333;
+    border-radius: 10px;
+    border: 1px solid #000;
+    overflow: hidden;
+}
+
+.health-bar-fill {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #c0392b, #e74c3c);
+    transition: width 0.2s ease-out;
+}
+
+#instruction-box {
+    position: absolute;
+    top: 20px;
+    width: 100%;
+    text-align: center;
+}
+
+#instruction-text {
+    display: inline-block;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border-radius: 20px;
+    font-size: 18px;
+    font-weight: bold;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+#quiz-ui {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 600px;
+    text-align: center;
+    background: rgba(20, 20, 40, 0.9);
+    padding: 30px;
+    border-radius: 20px;
+    border: 3px solid #3498db;
+    box-shadow: 0 0 30px rgba(52, 152, 219, 0.5);
+}
+
+#timer-box {
+    color: #e74c3c;
+    font-size: 30px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 2px black;
+}
+
+#question-text {
+    color: white;
+    font-size: 40px;
+    margin: 20px 0;
+}
+
+#controls {
+    pointer-events: auto;
+}
+
+#joystick-zone {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50%;
+    height: 50%;
+}
+
+#drag-hint {
+    position: absolute;
+    bottom: 30px;
+    left: 40px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: bold;
+    font-size: 14px;
+    pointer-events: none;
+}
+
+#action-buttons {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    display: flex;
+    gap: 20px;
+}
+
+.action-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    transition: all 0.1s;
+}
+
+.action-btn:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.large-btn {
+    width: 80px;
+    height: 80px;
+    font-size: 36px;
+    background: rgba(231, 76, 60, 0.6);
+    border-color: rgba(255, 100, 100, 0.8);
+}
