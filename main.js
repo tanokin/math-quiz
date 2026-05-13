@@ -319,7 +319,7 @@ function loadLevel(levelIndex) {
     if (levelIndex >= LEVELS.length) {
         document.getElementById('game-over-title').innerText = "おめでとう！ゲームクリア！";
         document.getElementById('game-over-title').style.color = "#FFD700";
-        document.getElementById('final-score').innerText = "お姫様の呪いが解けました！";
+        document.getElementById('final-score').innerHTML = "お<ruby>姫様<rt>ひめさま</rt></ruby>の<ruby>呪<rt>のろ</rt></ruby>いが<ruby>解<rt>と</rt></ruby>けました！";
         document.getElementById('game-over-screen').classList.remove('hidden');
         document.getElementById('hud').classList.add('hidden');
         document.getElementById('controls').classList.add('hidden');
@@ -747,7 +747,7 @@ function handleAnswer(isCorrectStr) {
     }
 
     document.getElementById('quiz-ui').classList.add('hidden');
-    document.getElementById('instruction-text').innerHTML = "クリスタルを探してね！";
+    document.getElementById('instruction-text').innerHTML = "クリスタルを<ruby>探<rt>さが</rt></ruby>してね！";
     while(quizPadsGroup.children.length > 0) quizPadsGroup.remove(quizPadsGroup.children[0]);
 
     gameState = 'EXPLORE';

@@ -6,6 +6,14 @@
     -webkit-user-select: none;
 }
 
+ruby {
+    ruby-align: center;
+}
+rt {
+    font-size: 0.55em;
+    line-height: 1.2;
+}
+
 body, html {
     width: 100%;
     height: 100%;
