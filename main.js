@@ -23,22 +23,22 @@ const LEVELS = [
     {
         id: 1, name: "おしろのダンジョン",
         sky: 'assets/r_sky.png', floor: 'assets/r_floor.png', wall: 'assets/r_wall.png',
-        monsters: 5, genMath: () => genAddTask(5), bgmParams: { r: 100, g: 100, b: 150 }
+        monsters: 50, genMath: () => genAddTask(5), bgmParams: { r: 100, g: 100, b: 150 }
     },
     {
         id: 2, name: "さばくのいせき",
         sky: 'assets/desert_sky.png', floor: 'assets/desert_floor.png', wall: 'assets/desert_wall.png',
-        monsters: 7, genMath: () => genAddTask(9), bgmParams: { r: 200, g: 180, b: 100 }
+        monsters: 70, genMath: () => genAddTask(9), bgmParams: { r: 200, g: 180, b: 100 }
     },
     {
         id: 3, name: "うみのどうくつ",
         sky: 'assets/r_sky.png', floor: 'assets/ocean_floor.png', wall: 'assets/ocean_wall.png',
-        monsters: 10, genMath: () => genSubTask(9), bgmParams: { r: 50, g: 150, b: 200 }
+        monsters: 100, genMath: () => genSubTask(9), bgmParams: { r: 50, g: 150, b: 200 }
     },
     {
         id: 4, name: "しんかいのもり",
         sky: 'assets/forest_sky.png', floor: 'assets/forest_floor.png', wall: 'assets/forest_wall.png',
-        monsters: 12, genMath: () => genMixTask(9), bgmParams: { r: 50, g: 180, b: 80 }
+        monsters: 120, genMath: () => genMixTask(9), bgmParams: { r: 50, g: 180, b: 80 }
     }
 ];
 
@@ -125,6 +125,68 @@ function playSound(type) {
     }
 }
 
+// ---------------------------------------------------
+// BGM (Web Audio chiptune)
+// ---------------------------------------------------
+const BGM_PATTERNS = [
+    { tempo: 132, notes: [523,659,784,880,784,659,523,392, 523,659,784,659, 523,784,523,392] },
+    { tempo: 152, notes: [440,494,523,587,523,494,440,392, 440,523,440,349, 392,440,494,523] },
+    { tempo: 108, notes: [349,392,440,494,440,392,349,330, 349,440,349,294, 330,349,392,440] },
+    { tempo: 176, notes: [392,440,494,523,587,523,494,440, 392,494,392,330, 349,392,440,523] },
+];
+let bgmInterval = null;
+let bgmStep = 0;
+let bgmLevelIdx = 0;
+
+function startBGM(levelIdx) {
+    stopBGM();
+    bgmLevelIdx = levelIdx < BGM_PATTERNS.length ? levelIdx : 0;
+    bgmStep = 0;
+    const pattern = BGM_PATTERNS[bgmLevelIdx];
+    const ms = (60000 / pattern.tempo) / 2;
+    bgmInterval = setInterval(() => {
+        if (audioCtx.state === 'suspended') return;
+        const freq = pattern.notes[bgmStep % pattern.notes.length];
+        playBGMNote(freq, ms / 1000);
+        bgmStep++;
+    }, ms);
+}
+
+function stopBGM() {
+    if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; }
+}
+
+function playBGMNote(freq, dur) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.8);
+    osc.start(now);
+    osc.stop(now + dur * 0.8);
+}
+
+function playClickSound() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    [440, 660, 880].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        const t = audioCtx.currentTime + i * 0.06;
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.start(t);
+        osc.stop(t + 0.12);
+    });
+}
+
 function spawnExplosion(pos) {
     const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
     const mat = new THREE.MeshBasicMaterial({ color: 0x8e44ad });
@@ -177,6 +239,18 @@ function showCelebration() {
     document.body.appendChild(el);
     setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1200);
     spawnGoldExplosion(player.position.clone().add(new THREE.Vector3(0, 2, 0)));
+}
+
+function showStageAnnouncement(id, name) {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;pointer-events:none;z-index:300;';
+    el.innerHTML = `
+      <div style="text-align:center;animation:celebrate 2s ease-out forwards;font-family:sans-serif;">
+        <div style="font-size:28px;color:#aaa;letter-spacing:4px;">STAGE ${id}</div>
+        <div style="font-size:52px;font-weight:bold;color:#FFD700;text-shadow:0 0 20px #FFA500;">${name}</div>
+      </div>`;
+    document.body.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 2000);
 }
 
 function createSymbolSprite(symbol, bgColor) {
@@ -282,16 +356,23 @@ function init() {
     
     // UI Events
     document.getElementById('btn-story-next').addEventListener('click', () => {
+        playClickSound();
         document.getElementById('story-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
         gameState = 'START';
     });
 
-    document.getElementById('btn-start').addEventListener('click', startGame);
+    document.getElementById('btn-start').addEventListener('click', () => { playClickSound(); startGame(); });
     document.getElementById('btn-restart').addEventListener('click', () => {
+        playClickSound();
         currentLevelIdx = 0;
         startGame();
     });
+
+    document.getElementById('btn-answer-o').addEventListener('click', () => { playClickSound(); handleAnswer(true); });
+    document.getElementById('btn-answer-x').addEventListener('click', () => { playClickSound(); handleAnswer(false); });
+    document.getElementById('btn-answer-o').addEventListener('touchstart', (e) => { e.preventDefault(); playClickSound(); handleAnswer(true); });
+    document.getElementById('btn-answer-x').addEventListener('touchstart', (e) => { e.preventDefault(); playClickSound(); handleAnswer(false); });
 
     document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); performAttack(); });
     document.getElementById('btn-attack').addEventListener('mousedown', (e) => { e.preventDefault(); performAttack(); });
@@ -413,9 +494,11 @@ function loadLevel(levelIndex) {
         spawnMonster((Math.random() - 0.5) * 90, (Math.random() - 0.5) * 90);
     }
 
-    player.position.set(0, 0, 0); // Start in center
-    player.rotation.set(0, Math.PI, 0); // Face -Z
+    player.position.set(0, 0, 0);
+    player.rotation.set(0, Math.PI, 0);
     gameState = 'EXPLORE';
+    startBGM(currentLevelIdx);
+    showStageAnnouncement(config.id, config.name);
 }
 
 function spawnMonster(xPos, zPos) {
@@ -676,7 +759,8 @@ function triggerQuiz() {
     playSound('crystal');
     gameState = 'QUIZ';
     document.getElementById('quiz-ui').classList.remove('hidden');
-    document.getElementById('instruction-text').innerHTML = "⭕ か ✕ のうえにのってこたえてね！";
+    document.getElementById('quiz-answer-buttons').classList.remove('hidden');
+    document.getElementById('instruction-text').innerHTML = "○ か × ボタンでこたえてね！";
 
     const config = LEVELS[currentLevelIdx];
     currentQuestion = config.genMath();
@@ -686,49 +770,17 @@ function triggerQuiz() {
 
     quizTimer = 60;
     document.getElementById('time-count').innerText = quizTimer;
-    
-    createQuizPads();
 }
 
-function createQuizPads() {
-    while(quizPadsGroup.children.length > 0) {
-        quizPadsGroup.remove(quizPadsGroup.children[0]);
-    }
-
-    const padGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.2, 32);
-
-    const oPad = new THREE.Mesh(padGeo, new THREE.MeshStandardMaterial({ color: 0x3498db }));
-    oPad.userData = { isCorrect: true, isPad: true };
-
-    const xPad = new THREE.Mesh(padGeo, new THREE.MeshStandardMaterial({ color: 0xe74c3c }));
-    xPad.userData = { isCorrect: false, isPad: true };
-
-    const offset = 3.5;
-    const forwardVec = new THREE.Vector3(0, 0, -offset).applyQuaternion(player.quaternion);
-    const rightVec = new THREE.Vector3(offset, 0, 0).applyQuaternion(player.quaternion);
-
-    const padCenter = player.position.clone().add(forwardVec);
-    oPad.position.copy(padCenter).add(rightVec);
-    xPad.position.copy(padCenter).sub(rightVec);
-    oPad.position.y = 0.1;
-    xPad.position.y = 0.1;
-
-    // 浮遊スプライトで ○ と × を大きく表示
-    const oSprite = createSymbolSprite('○', '#2980b9');
-    oSprite.position.set(oPad.position.x, 2.2, oPad.position.z);
-
-    const xSprite = createSymbolSprite('×', '#c0392b');
-    xSprite.position.set(xPad.position.x, 2.2, xPad.position.z);
-
-    quizPadsGroup.add(oPad);
-    quizPadsGroup.add(xPad);
-    quizPadsGroup.add(oSprite);
-    quizPadsGroup.add(xSprite);
-}
-
-function handleAnswer(isCorrectStr) {
+function handleAnswer(isCorrectVal) {
     if (gameState !== 'QUIZ') return;
-    const isCorrect = (isCorrectStr === currentQuestion.a);
+    gameState = 'EXPLORE';
+
+    document.getElementById('quiz-ui').classList.add('hidden');
+    document.getElementById('quiz-answer-buttons').classList.add('hidden');
+    document.getElementById('instruction-text').innerHTML = "クリスタルを<ruby>探<rt>さが</rt></ruby>してね！";
+
+    const isCorrect = (isCorrectVal === currentQuestion.a);
 
     if (isCorrect) {
         showCelebration();
@@ -736,21 +788,25 @@ function handleAnswer(isCorrectStr) {
         speak("せいかい！");
         correctAnswersInLevel++;
         updateProgressUI();
-
         if (correctAnswersInLevel >= 5) {
             setTimeout(() => { loadLevel(currentLevelIdx + 1); }, 1200);
         }
     } else {
+        showWrongFeedback(currentQuestion.a);
         playSound('damage');
-        speak("ざんねん、ちがいます");
+        speak("ざんねん！こたえは" + (currentQuestion.a ? "まる" : "ばつ") + "でした");
         takeDamage(20);
     }
+}
 
-    document.getElementById('quiz-ui').classList.add('hidden');
-    document.getElementById('instruction-text').innerHTML = "クリスタルを<ruby>探<rt>さが</rt></ruby>してね！";
-    while(quizPadsGroup.children.length > 0) quizPadsGroup.remove(quizPadsGroup.children[0]);
-
-    gameState = 'EXPLORE';
+function showWrongFeedback(correctAnswer) {
+    const sym = correctAnswer ? '○' : '×';
+    const col = correctAnswer ? '#3498db' : '#e74c3c';
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;pointer-events:none;z-index:200;';
+    el.innerHTML = `<div style="font-size:50px;font-weight:bold;color:#ff6666;font-family:sans-serif;animation:celebrate 1.5s ease-out forwards;">ざんねん！</div><div style="font-size:36px;color:white;margin-top:10px;animation:celebrate 1.5s ease-out forwards;">こたえは <span style="font-size:90px;color:${col};">${sym}</span> でした</div>`;
+    document.body.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1500);
 }
 
 function speak(text) {
@@ -787,17 +843,30 @@ function animate() {
 
         if ((moveInput.forward !== 0 || moveInput.right !== 0) && !isAttacking) {
             isMoving = true;
-            const moveVec = new THREE.Vector3(moveInput.right, 0, -moveInput.forward);
+
+            // Camera-relative movement: joystick up = camera's forward direction
+            const camTargetPos = new THREE.Vector3();
+            followCamGroup.getWorldPosition(camTargetPos);
+            const camFwd = player.position.clone().sub(camTargetPos);
+            camFwd.y = 0;
+            if (camFwd.length() < 0.001) camFwd.set(0, 0, -1);
+            else camFwd.normalize();
+            // Right vector: rotate camFwd 90° CW around Y
+            const camRight = new THREE.Vector3(-camFwd.z, 0, camFwd.x);
+
+            const moveVec = new THREE.Vector3()
+                .addScaledVector(camFwd, moveInput.forward)
+                .addScaledVector(camRight, moveInput.right);
+            moveVec.y = 0;
             moveVec.normalize().multiplyScalar(moveSpeed * dt);
-            
-            // Apply movement
+
             player.position.add(moveVec);
-            
-            // Arena Bounds (100x100) -> -49 to 49
+
+            // Arena Bounds
             player.position.x = Math.max(-49, Math.min(49, player.position.x));
             player.position.z = Math.max(-49, Math.min(49, player.position.z));
 
-            // Obstacle Collision (Simple radial push)
+            // Obstacle Collision
             for(let o of obstacles) {
                 let dist = player.position.distanceTo(o.position);
                 if (dist < 1.2) {
@@ -924,17 +993,8 @@ function animate() {
             document.getElementById('time-count').innerText = Math.ceil(quizTimer);
             if (quizTimer <= 0) {
                 speak("時間切れです！");
-                takeDamage(20);
                 handleAnswer(null);
             }
-
-            quizPadsGroup.children.forEach(pad => {
-                if (!pad.userData.isPad) return;
-                const dist = player.position.distanceTo(pad.position);
-                if (dist < 1.5) {
-                    handleAnswer(pad.userData.isCorrect);
-                }
-            });
         }
 
         // Particle physics
