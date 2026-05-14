@@ -17,9 +17,9 @@
                 <div class="story-images">
                     <span>👸</span> ➔ <span>🐸</span>
                 </div>
-                <p><ruby>大変<rt>たいへん</rt></ruby>です！お<ruby>姫様<rt>ひめさま</rt></ruby>が<ruby>悪<rt>わる</rt></ruby>いモンスターの<ruby>呪<rt>のろ</rt></ruby>いで<br>カエルに<ruby>変<rt>か</rt></ruby>えられてしまいました！</p>
-                <p><ruby>広大<rt>こうだい</rt></ruby>なダンジョンに<ruby>隠<rt>かく</rt></ruby>された<strong style="color: #00ffff;">「<ruby>知識<rt>ちしき</rt></ruby>のクリスタル」</strong>を5つ<ruby>探<rt>さが</rt></ruby>し<ruby>出<rt>だ</rt></ruby>し、<br>クイズに<ruby>正解<rt>せいかい</rt></ruby>して<ruby>呪<rt>のろ</rt></ruby>いを<ruby>解<rt>と</rt></ruby>いてください！</p>
-                <button id="btn-story-next" class="primary-btn"><ruby>冒険<rt>ぼうけん</rt></ruby>へ<ruby>出発<rt>しゅっぱつ</rt></ruby>する</button>
+                <p id="story-p1"></p>
+                <p id="story-p2"></p>
+                <button id="btn-story-next" class="primary-btn hidden"><ruby>冒険<rt>ぼうけん</rt></ruby>へ<ruby>出発<rt>しゅっぱつ</rt></ruby>する</button>
             </div>
         </div>
 
@@ -68,8 +68,10 @@
 
         <!-- Quiz Answer Buttons -->
         <div id="quiz-answer-buttons" class="hidden">
-            <button id="btn-answer-o" class="quiz-answer-btn btn-answer-o">○</button>
-            <button id="btn-answer-x" class="quiz-answer-btn btn-answer-x">×</button>
+            <button class="quiz-answer-btn"></button>
+            <button class="quiz-answer-btn"></button>
+            <button class="quiz-answer-btn"></button>
+            <button class="quiz-answer-btn"></button>
         </div>
 
         <!-- Game Over / Clear Screens -->

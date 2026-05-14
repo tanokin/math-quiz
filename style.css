@@ -199,8 +199,11 @@ body, html {
 
 #question-text {
     color: white;
-    font-size: 40px;
+    font-size: 32px;
+    line-height: 1.5;
     margin: 20px 0;
+    white-space: pre-wrap;
+    word-break: keep-all;
 }
 
 #controls {
@@ -263,41 +266,40 @@ body, html {
 
 #quiz-answer-buttons {
     position: absolute;
-    bottom: 22%;
+    bottom: 15%;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 50px;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    width: 90%;
+    max-width: 400px; /* Forces 2x2 grid if width is small, or just wraps nicely */
     pointer-events: auto;
     z-index: 15;
 }
 
 .quiz-answer-btn {
-    width: 130px;
-    height: 130px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
-    font-size: 70px;
+    background: linear-gradient(145deg, #3498db, #1a6fa8);
+    color: white;
+    font-size: 50px;
     font-weight: bold;
-    border: 4px solid rgba(255,255,255,0.6);
+    border: 4px solid rgba(255,255,255,0.8);
     cursor: pointer;
     box-shadow: 0 8px 25px rgba(0,0,0,0.6);
     transition: transform 0.1s, filter 0.1s;
-    line-height: 1;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    margin: 0;
+    padding: 0;
 }
 
 .quiz-answer-btn:active {
     transform: scale(0.88);
     filter: brightness(0.8);
-}
-
-.btn-answer-o {
-    background: linear-gradient(145deg, #3498db, #1a6fa8);
-    color: white;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
-}
-
-.btn-answer-x {
-    background: linear-gradient(145deg, #e74c3c, #a93226);
-    color: white;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }

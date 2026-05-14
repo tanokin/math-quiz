@@ -13,32 +13,33 @@ let gameState = 'STORY';
 let score = 0;
 let health = 100;
 let moveInput = { forward: 0, right: 0 };
-let moveSpeed = 6.0;
+let moveSpeed = 4.0; // Slowed down from 6.0 for better control
 let invincibilityTimer = 0;
+let playerFlinchTimer = 0;
 
 // Levels Config
 let currentLevelIdx = 0;
 let correctAnswersInLevel = 0;
 const LEVELS = [
-    {
-        id: 1, name: "おしろのダンジョン",
-        sky: 'assets/r_sky.png', floor: 'assets/r_floor.png', wall: 'assets/r_wall.png',
-        monsters: 50, genMath: () => genAddTask(5), bgmParams: { r: 100, g: 100, b: 150 }
+    { 
+        id: 1, name: "Castle Dungeon", 
+        sky: 'assets/realistic_sky.png', floor: 'assets/realistic_stone_floor.png', wall: 'assets/realistic_castle_wall.png', 
+        monsters: 25, genMath: () => genMathTask(1, 1), bgmParams: { r: 100, g: 100, b: 150 }
     },
-    {
-        id: 2, name: "さばくのいせき",
-        sky: 'assets/desert_sky.png', floor: 'assets/desert_floor.png', wall: 'assets/desert_wall.png',
-        monsters: 70, genMath: () => genAddTask(9), bgmParams: { r: 200, g: 180, b: 100 }
+    { 
+        id: 2, name: "Desert Ruins", 
+        sky: 'assets/desert_sky.png', floor: 'assets/desert_floor.png', wall: 'assets/desert_wall.png', 
+        monsters: 35, genMath: () => genMathTask(1, 2), bgmParams: { r: 200, g: 180, b: 100 }
     },
-    {
-        id: 3, name: "うみのどうくつ",
-        sky: 'assets/r_sky.png', floor: 'assets/ocean_floor.png', wall: 'assets/ocean_wall.png',
-        monsters: 100, genMath: () => genSubTask(9), bgmParams: { r: 50, g: 150, b: 200 }
+    { 
+        id: 3, name: "Shallow Ocean", 
+        sky: 'assets/realistic_sky.png', floor: 'assets/ocean_floor.png', wall: 'assets/ocean_wall.png', 
+        monsters: 50, genMath: () => genMathTask(2, 2), bgmParams: { r: 50, g: 150, b: 200 }
     },
-    {
-        id: 4, name: "しんかいのもり",
-        sky: 'assets/forest_sky.png', floor: 'assets/forest_floor.png', wall: 'assets/forest_wall.png',
-        monsters: 120, genMath: () => genMixTask(9), bgmParams: { r: 50, g: 180, b: 80 }
+    { 
+        id: 4, name: "Deep Forest", 
+        sky: 'assets/forest_sky.png', floor: 'assets/forest_floor.png', wall: 'assets/forest_wall.png', 
+        monsters: 70, genMath: () => genMathTask(3, 2), bgmParams: { r: 50, g: 180, b: 80 }
     }
 ];
 
@@ -48,7 +49,6 @@ let monsters = [];
 let crystals = [];
 let obstacles = [];
 let particles = [];
-let quizPadsGroup = new THREE.Group();
 
 let currentQuestion = null;
 let quizTimer = 60;
@@ -71,6 +71,38 @@ function loadTexture(path, repeat = null) {
     }
     cachedTextures[path] = tex;
     return tex;
+}
+
+// ----------------------------------------------------
+// Typewriter & Speech API
+// ----------------------------------------------------
+let typeTimeout = null;
+function typeText(element, text, speed, onComplete) {
+    element.innerText = '';
+    let i = 0;
+    if(typeTimeout) clearTimeout(typeTimeout);
+    
+    function type() {
+        if (i < text.length) {
+            element.innerText += text.charAt(i);
+            i++;
+            typeTimeout = setTimeout(type, speed);
+        } else if(onComplete) {
+            onComplete();
+        }
+    }
+    type();
+}
+
+function speak(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(text);
+        ut.lang = 'ja-JP';
+        ut.rate = 1.0;
+        ut.pitch = 1.2;
+        window.speechSynthesis.speak(ut);
+    }
 }
 
 // ----------------------------------------------------
@@ -125,68 +157,6 @@ function playSound(type) {
     }
 }
 
-// ---------------------------------------------------
-// BGM (Web Audio chiptune)
-// ---------------------------------------------------
-const BGM_PATTERNS = [
-    { tempo: 132, notes: [523,659,784,880,784,659,523,392, 523,659,784,659, 523,784,523,392] },
-    { tempo: 152, notes: [440,494,523,587,523,494,440,392, 440,523,440,349, 392,440,494,523] },
-    { tempo: 108, notes: [349,392,440,494,440,392,349,330, 349,440,349,294, 330,349,392,440] },
-    { tempo: 176, notes: [392,440,494,523,587,523,494,440, 392,494,392,330, 349,392,440,523] },
-];
-let bgmInterval = null;
-let bgmStep = 0;
-let bgmLevelIdx = 0;
-
-function startBGM(levelIdx) {
-    stopBGM();
-    bgmLevelIdx = levelIdx < BGM_PATTERNS.length ? levelIdx : 0;
-    bgmStep = 0;
-    const pattern = BGM_PATTERNS[bgmLevelIdx];
-    const ms = (60000 / pattern.tempo) / 2;
-    bgmInterval = setInterval(() => {
-        if (audioCtx.state === 'suspended') return;
-        const freq = pattern.notes[bgmStep % pattern.notes.length];
-        playBGMNote(freq, ms / 1000);
-        bgmStep++;
-    }, ms);
-}
-
-function stopBGM() {
-    if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; }
-}
-
-function playBGMNote(freq, dur) {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.type = 'square';
-    osc.frequency.value = freq;
-    const now = audioCtx.currentTime;
-    gain.gain.setValueAtTime(0.04, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.8);
-    osc.start(now);
-    osc.stop(now + dur * 0.8);
-}
-
-function playClickSound() {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    [440, 660, 880].forEach((freq, i) => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.type = 'square';
-        osc.frequency.value = freq;
-        const t = audioCtx.currentTime + i * 0.06;
-        gain.gain.setValueAtTime(0.25, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-        osc.start(t);
-        osc.stop(t + 0.12);
-    });
-}
-
 function spawnExplosion(pos) {
     const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
     const mat = new THREE.MeshBasicMaterial({ color: 0x8e44ad });
@@ -204,106 +174,46 @@ function spawnExplosion(pos) {
     }
 }
 
-function spawnGoldExplosion(pos) {
-    const geo = new THREE.SphereGeometry(0.15, 8, 8);
-    for (let i = 0; i < 30; i++) {
-        const mat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0xFFD700 : 0xFFA500 });
-        const p = new THREE.Mesh(geo, mat);
-        p.position.copy(pos);
-        p.velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * 14,
-            Math.random() * 16 + 4,
-            (Math.random() - 0.5) * 14
-        );
-        p.lifetime = 1.0 + Math.random() * 0.5;
-        scene.add(p);
-        particles.push({ mesh: p, vel: p.velocity, life: p.lifetime });
-    }
-}
-
-function showCelebration() {
-    if (!document.getElementById('celebrate-style')) {
-        const style = document.createElement('style');
-        style.id = 'celebrate-style';
-        style.textContent = `@keyframes celebrate {
-            0%   { transform: scale(0.3); opacity: 0; }
-            40%  { transform: scale(1.3); opacity: 1; }
-            70%  { transform: scale(1.0); opacity: 1; }
-            100% { transform: scale(1.1) translateY(-40px); opacity: 0; }
-        }`;
-        document.head.appendChild(style);
-    }
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:flex;justify-content:center;align-items:center;pointer-events:none;z-index:200;';
-    el.innerHTML = '<div style="font-size:80px;font-weight:bold;color:#FFD700;text-shadow:0 0 30px #FFA500,0 0 60px #FFD700;animation:celebrate 1.2s ease-out forwards;font-family:sans-serif;">✨ せいかい！ ✨</div>';
-    document.body.appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1200);
-    spawnGoldExplosion(player.position.clone().add(new THREE.Vector3(0, 2, 0)));
-}
-
-function showStageAnnouncement(id, name) {
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;pointer-events:none;z-index:300;';
-    el.innerHTML = `
-      <div style="text-align:center;animation:celebrate 2s ease-out forwards;font-family:sans-serif;">
-        <div style="font-size:28px;color:#aaa;letter-spacing:4px;">STAGE ${id}</div>
-        <div style="font-size:52px;font-weight:bold;color:#FFD700;text-shadow:0 0 20px #FFA500;">${name}</div>
-      </div>`;
-    document.body.appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 2000);
-}
-
-function createSymbolSprite(symbol, bgColor) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256; canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = bgColor;
-    ctx.beginPath();
-    ctx.arc(128, 128, 120, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.font = 'bold 170px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'white';
-    ctx.fillText(symbol, 128, 138);
-    const tex = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(3.0, 3.0, 1);
-    return sprite;
-}
-
-// Math generators — 小学1年生レベル
-function genAddTask(maxSum) {
-    const a = Math.floor(Math.random() * (maxSum - 1)) + 1;
-    const b = Math.floor(Math.random() * (maxSum - a)) + 1;
+// Math generator (Multiple Choice)
+function genMathTask(digitsA, digitsB) {
+    const minA = digitsA === 1 ? 1 : Math.pow(10, digitsA - 1);
+    const maxA = Math.pow(10, digitsA) - 1;
+    const minB = digitsB === 1 ? 1 : Math.pow(10, digitsB - 1);
+    const maxB = Math.pow(10, digitsB) - 1;
+    const a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
+    const b = Math.floor(Math.random() * (maxB - minB + 1)) + minB;
     const trueAns = a + b;
-    const isCorrect = Math.random() > 0.5;
-    let displayedAns = trueAns;
-    if (!isCorrect) {
-        const offset = Math.floor(Math.random() * 2) + 1;
-        displayedAns = Math.random() > 0.5 ? trueAns + offset : Math.max(1, trueAns - offset);
-        if (displayedAns === trueAns) displayedAns += 1;
+    
+    // Generate 3 wrong answers
+    let choices = [trueAns];
+    while(choices.length < 4) {
+        const offset = Math.floor(Math.random() * 10) + 1;
+        const fake = trueAns + (Math.random() > 0.5 ? offset : -offset);
+        if (fake > 0 && !choices.includes(fake)) {
+            choices.push(fake);
+        }
     }
-    return { q: `${a} ＋ ${b} ＝ ${displayedAns} ？`, speak: `${a}たす${b}は、${displayedAns}ですか？`, a: isCorrect };
-}
+    
+    // Shuffle choices
+    choices.sort(() => Math.random() - 0.5);
 
-function genSubTask(maxNum) {
-    const a = Math.floor(Math.random() * maxNum) + 1;
-    const b = Math.floor(Math.random() * a) + 1;
-    const trueAns = a - b;
-    const isCorrect = Math.random() > 0.5;
-    let displayedAns = trueAns;
-    if (!isCorrect) {
-        const offset = Math.floor(Math.random() * 2) + 1;
-        displayedAns = Math.random() > 0.5 ? trueAns + offset : Math.max(0, trueAns - offset);
-        if (displayedAns === trueAns) displayedAns += 1;
-    }
-    return { q: `${a} ー ${b} ＝ ${displayedAns} ？`, speak: `${a}ひく${b}は、${displayedAns}ですか？`, a: isCorrect };
-}
-
-function genMixTask(maxNum) {
-    return Math.random() > 0.5 ? genAddTask(maxNum) : genSubTask(maxNum);
+    // Formats
+    const formats = [
+        { q: `${a} ＋ ${b} ＝ ？`, r: `${a} たす ${b} は？` },
+        { q: `りんごが ${a}こ ありました。\nさらに ${b}こ もらうと、\nぜんぶで いくつ？`, r: `りんごが ${a}こ ありました。さらに ${b}こ もらうと、ぜんぶで いくつ？` },
+        { q: `コインを ${a}まい もっています。\nたからばこから ${b}まい みつけると、\nぜんぶで なんまい？`, r: `コインを ${a}まい もっています。たからばこから ${b}まい みつけると、ぜんぶで なんまい？` },
+        { q: `モンスターを ${a}ひき たおしました。\nさらに ${b}ひき たおすと、\nぜんぶで なんびき？`, r: `モンスターを ${a}ひき たおしました。さらに ${b}ひき たおすと、ぜんぶで なんびき？` },
+        { q: `クッキーを ${a}まい やきました。\nさらに ${b}まい やくと、\nぜんぶで なんまい？`, r: `クッキーを ${a}まい やきました。さらに ${b}まい やくと、ぜんぶで なんまい？` }
+    ];
+    
+    const format = formats[Math.floor(Math.random() * formats.length)];
+    
+    return { 
+        q: format.q, 
+        readText: format.r,
+        a: trueAns,
+        choices: choices 
+    };
 }
 
 init();
@@ -350,32 +260,32 @@ function init() {
     scene.add(ambientLight);
 
     scene.add(environmentGroup);
-    scene.add(quizPadsGroup);
 
     createPlayer();
     
     // UI Events
     document.getElementById('btn-story-next').addEventListener('click', () => {
-        playClickSound();
         document.getElementById('story-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
         gameState = 'START';
     });
 
-    document.getElementById('btn-start').addEventListener('click', () => { playClickSound(); startGame(); });
+    document.getElementById('btn-start').addEventListener('click', startGame);
     document.getElementById('btn-restart').addEventListener('click', () => {
-        playClickSound();
         currentLevelIdx = 0;
         startGame();
     });
 
-    document.getElementById('btn-answer-o').addEventListener('click', () => { playClickSound(); handleAnswer(true); });
-    document.getElementById('btn-answer-x').addEventListener('click', () => { playClickSound(); handleAnswer(false); });
-    document.getElementById('btn-answer-o').addEventListener('touchstart', (e) => { e.preventDefault(); playClickSound(); handleAnswer(true); });
-    document.getElementById('btn-answer-x').addEventListener('touchstart', (e) => { e.preventDefault(); playClickSound(); handleAnswer(false); });
-
     document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); performAttack(); });
     document.getElementById('btn-attack').addEventListener('mousedown', (e) => { e.preventDefault(); performAttack(); });
+
+    // Setup multiple choice answer buttons
+    const answerBtns = document.querySelectorAll('.quiz-answer-btn');
+    answerBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            handleAnswer(parseInt(e.target.innerText));
+        });
+    });
 
     window.addEventListener('resize', onWindowResize, false);
     
@@ -394,13 +304,40 @@ function init() {
     });
 
     renderer.setAnimationLoop(animate);
+
+    // Start story sequence
+    startStorySequence();
+}
+
+function startStorySequence() {
+    const text1 = "たいへんです！おひめさまが わるいモンスターの のろいで カエルに かえられてしまいました！";
+    const text2 = "ひろいダンジョンに かくされた「ちしきのクリスタル」を 5つ さがしだし、クイズに せいかいして のろいを といてください！";
+    
+    const p1 = document.getElementById('story-p1');
+    const p2 = document.getElementById('story-p2');
+    const btn = document.getElementById('btn-story-next');
+    
+    // Auto-resume audio ctx on first click anywhere
+    window.addEventListener('click', () => {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+    }, { once: true });
+
+    typeText(p1, text1, 80, () => {
+        speak(text1);
+        setTimeout(() => {
+            typeText(p2, text2, 80, () => {
+                speak(text2);
+                btn.classList.remove('hidden');
+            });
+        }, 1500);
+    });
 }
 
 function loadLevel(levelIndex) {
     if (levelIndex >= LEVELS.length) {
-        document.getElementById('game-over-title').innerText = "おめでとう！ゲームクリア！";
+        document.getElementById('game-over-title').innerText = "ゲームクリア！";
         document.getElementById('game-over-title').style.color = "#FFD700";
-        document.getElementById('final-score').innerHTML = "お<ruby>姫様<rt>ひめさま</rt></ruby>の<ruby>呪<rt>のろ</rt></ruby>いが<ruby>解<rt>と</rt></ruby>けました！";
+        document.getElementById('final-score-wrap').innerHTML = "おひめさまの のろいが とけました！";
         document.getElementById('game-over-screen').classList.remove('hidden');
         document.getElementById('hud').classList.add('hidden');
         document.getElementById('controls').classList.add('hidden');
@@ -430,7 +367,7 @@ function loadLevel(levelIndex) {
     scene.background.mapping = THREE.EquirectangularReflectionMapping;
     scene.fog.color.setRGB(config.bgmParams.r/255, config.bgmParams.g/255, config.bgmParams.b/255);
 
-    // Floor (Large Square Arena: 100x100)
+    // Floor
     const floorMat = new THREE.MeshStandardMaterial({ map: loadTexture(config.floor, [50, 50]), roughness: 0.9 });
     const floorGeo = new THREE.PlaneGeometry(100, 100);
     const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -453,11 +390,10 @@ function loadLevel(levelIndex) {
         environmentGroup.add(w);
     });
 
-    // Generate Obstacles (Boxes/Barrels)
+    // Generate Obstacles
     const barrelGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16);
     const crateGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
     const obstacleMat = new THREE.MeshPhysicalMaterial({ color: '#8B4513', roughness: 0.9 });
-    const ironMat = new THREE.MeshStandardMaterial({ color: '#444', metalness: 0.8, roughness: 0.5 });
     
     for(let i=0; i<40; i++) {
         const isBarrel = Math.random() > 0.5;
@@ -467,21 +403,19 @@ function loadLevel(levelIndex) {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
-        // Don't spawn exactly on player start
         if (mesh.position.distanceTo(new THREE.Vector3(0,0,0)) < 5) continue;
 
         environmentGroup.add(mesh);
         obstacles.push(mesh);
     }
 
-    // Spawn Crystals (Hidden in the arena)
+    // Spawn Crystals
     const crystalGeo = new THREE.OctahedronGeometry(0.5);
     const crystalMat = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.1 });
-    for(let i=0; i<5; i++) { // Need 5 to progress
+    for(let i=0; i<5; i++) { 
         const crystal = new THREE.Mesh(crystalGeo, crystalMat);
         let cx = (Math.random() - 0.5) * 80;
         let cz = (Math.random() - 0.5) * 80;
-        // Keep away from center
         if (Math.abs(cx) < 10) cx += 20;
         crystal.position.set(cx, 1.0, cz);
         crystal.castShadow = true;
@@ -494,32 +428,27 @@ function loadLevel(levelIndex) {
         spawnMonster((Math.random() - 0.5) * 90, (Math.random() - 0.5) * 90);
     }
 
-    player.position.set(0, 0, 0);
-    player.rotation.set(0, Math.PI, 0);
+    player.position.set(0, 0, 0); 
+    player.rotation.set(0, Math.PI, 0); 
     gameState = 'EXPLORE';
-    startBGM(currentLevelIdx);
-    showStageAnnouncement(config.id, config.name);
 }
 
 function spawnMonster(xPos, zPos) {
-    if (Math.abs(xPos) < 10 && Math.abs(zPos) < 10) xPos += 20; // Don't spawn on player
+    if (Math.abs(xPos) < 10 && Math.abs(zPos) < 10) xPos += 20; 
 
     const group = new THREE.Group();
     group.position.set(xPos, 1.5, zPos);
     
-    // Skull Cranium (High Poly)
     const boneMat = new THREE.MeshPhysicalMaterial({ color: '#f5f6fa', roughness: 0.5, clearcoat: 0.2 });
     const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.4, 64, 64), boneMat);
     cranium.castShadow = true; cranium.receiveShadow = true;
     group.add(cranium);
 
-    // Jaw
     const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4, 32, 32, 32), boneMat);
     jaw.position.set(0, -0.3, 0.1);
     jaw.castShadow = true; jaw.receiveShadow = true;
     group.add(jaw);
 
-    // Eyes
     const eyeHoleGeo = new THREE.SphereGeometry(0.12, 32, 32);
     const eyeHoleMat = new THREE.MeshBasicMaterial({ color: '#000000' });
     const eyeL = new THREE.Mesh(eyeHoleGeo, eyeHoleMat);
@@ -532,7 +461,6 @@ function spawnMonster(xPos, zPos) {
     eyeR.scale.y = 1.2;
     group.add(eyeR);
 
-    // Glowing red pupils
     const glowMat = new THREE.MeshBasicMaterial({ color: '#ff2222' });
     const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 16), glowMat);
     pupilL.position.set(0, 0, 0.08);
@@ -541,7 +469,6 @@ function spawnMonster(xPos, zPos) {
     pupilR.position.set(0, 0, 0.08);
     eyeR.add(pupilR);
 
-    // Floating dark aura
     const auraGeo = new THREE.SphereGeometry(0.65, 64, 64);
     const auraMat = new THREE.MeshPhysicalMaterial({ 
         color: '#8e44ad', transmission: 0.8, opacity: 1, transparent: true, roughness: 0.1, side: THREE.BackSide 
@@ -554,7 +481,8 @@ function spawnMonster(xPos, zPos) {
         mesh: group,
         speed: 1.5 + Math.random() * 2.0,
         state: 'wander',
-        timer: Math.random() * 2
+        timer: Math.random() * 2,
+        attackLunge: 0
     });
 }
 
@@ -581,13 +509,11 @@ function performAttack() {
             const dirToMonster = m.mesh.position.clone().sub(player.position).normalize();
             const angle = playerDir.angleTo(dirToMonster);
             if (angle < Math.PI * 0.7) { 
-                // Hit!
                 playSound('hit');
                 spawnExplosion(m.mesh.position);
                 scene.remove(m.mesh);
                 monsters.splice(i, 1);
                 
-                // Spawn new monster far away to keep level populated
                 spawnMonster((Math.random() - 0.5) * 90, (Math.random() - 0.5) * 90);
             }
         }
@@ -669,7 +595,6 @@ function createPlayer() {
     playerBody.add(charLegR);
     addMesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6, 32), matOrange, charLegR).position.y = -0.3;
 
-    // Slash Effect Mesh
     const slashGeo = new THREE.TorusGeometry(2.5, 0.05, 16, 64, Math.PI);
     const slashMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
     slashMesh = new THREE.Mesh(slashGeo, slashMat);
@@ -745,11 +670,13 @@ function updateProgressUI() {
 
 function takeDamage(amt) {
     if (invincibilityTimer > 0) return;
-    invincibilityTimer = 1.0; // 1 second i-frames
+    invincibilityTimer = 1.0; 
     
     playSound('damage');
     health -= amt;
     updateHealthUI();
+    
+    playerFlinchTimer = 0.3; // Make player flinch backward
     
     document.getElementById('hud').style.boxShadow = "inset 0 0 50px red";
     setTimeout(() => { document.getElementById('hud').style.boxShadow = "none"; }, 200);
@@ -758,64 +685,60 @@ function takeDamage(amt) {
 function triggerQuiz() {
     playSound('crystal');
     gameState = 'QUIZ';
-    document.getElementById('quiz-ui').classList.remove('hidden');
-    document.getElementById('quiz-answer-buttons').classList.remove('hidden');
-    document.getElementById('instruction-text').innerHTML = "○ か × ボタンでこたえてね！";
-
+    
+    const ui = document.getElementById('quiz-ui');
+    const answerButtons = document.getElementById('quiz-answer-buttons');
+    const qText = document.getElementById('question-text');
+    
+    ui.classList.remove('hidden');
+    document.getElementById('instruction-text').innerHTML = "ただしい こたえを えらんでね！";
+    
     const config = LEVELS[currentLevelIdx];
     currentQuestion = config.genMath();
-    document.getElementById('question-text').innerText = currentQuestion.q;
-
-    speak(currentQuestion.speak || currentQuestion.q);
+    
+    answerButtons.classList.add('hidden'); // Hide buttons while typing
+    
+    speak(currentQuestion.readText);
+    
+    typeText(qText, currentQuestion.q, 60, () => {
+        // Show options
+        answerButtons.classList.remove('hidden');
+        const btns = document.querySelectorAll('.quiz-answer-btn');
+        btns.forEach((btn, i) => {
+            btn.innerText = currentQuestion.choices[i];
+            btn.style.display = 'block';
+        });
+    });
 
     quizTimer = 60;
     document.getElementById('time-count').innerText = quizTimer;
 }
 
-function handleAnswer(isCorrectVal) {
-    if (gameState !== 'QUIZ') return;
-    gameState = 'EXPLORE';
-
-    document.getElementById('quiz-ui').classList.add('hidden');
-    document.getElementById('quiz-answer-buttons').classList.add('hidden');
-    document.getElementById('instruction-text').innerHTML = "クリスタルを<ruby>探<rt>さが</rt></ruby>してね！";
-
-    const isCorrect = (isCorrectVal === currentQuestion.a);
-
+function handleAnswer(selectedAns) {
+    const isCorrect = (selectedAns === currentQuestion.a);
+    
     if (isCorrect) {
-        showCelebration();
         playSound('correct');
         speak("せいかい！");
         correctAnswersInLevel++;
         updateProgressUI();
+        
         if (correctAnswersInLevel >= 5) {
-            setTimeout(() => { loadLevel(currentLevelIdx + 1); }, 1200);
+            setTimeout(() => {
+                loadLevel(currentLevelIdx + 1);
+            }, 1000);
         }
     } else {
-        showWrongFeedback(currentQuestion.a);
         playSound('damage');
-        speak("ざんねん！こたえは" + (currentQuestion.a ? "まる" : "ばつ") + "でした");
+        speak("ざんねん、ちがいます");
         takeDamage(20);
     }
-}
 
-function showWrongFeedback(correctAnswer) {
-    const sym = correctAnswer ? '○' : '×';
-    const col = correctAnswer ? '#3498db' : '#e74c3c';
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;pointer-events:none;z-index:200;';
-    el.innerHTML = `<div style="font-size:50px;font-weight:bold;color:#ff6666;font-family:sans-serif;animation:celebrate 1.5s ease-out forwards;">ざんねん！</div><div style="font-size:36px;color:white;margin-top:10px;animation:celebrate 1.5s ease-out forwards;">こたえは <span style="font-size:90px;color:${col};">${sym}</span> でした</div>`;
-    document.body.appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1500);
-}
-
-function speak(text) {
-    if ('speechSynthesis' in window) {
-        const ut = new SpeechSynthesisUtterance(text);
-        ut.lang = 'ja-JP';
-        ut.rate = 0.9;
-        window.speechSynthesis.speak(ut);
-    }
+    document.getElementById('quiz-ui').classList.add('hidden');
+    document.getElementById('quiz-answer-buttons').classList.add('hidden');
+    document.getElementById('instruction-text').innerHTML = "クリスタルを さがしてね！";
+    
+    gameState = 'EXPLORE';
 }
 
 function onWindowResize() {
@@ -829,44 +752,36 @@ function animate() {
     const dt = Math.min(now - lastTime, 0.1);
     lastTime = now;
 
+    // Invincibility Blinking
     if (invincibilityTimer > 0) {
         invincibilityTimer -= dt;
-        // Blink effect
         playerBody.visible = Math.floor(invincibilityTimer * 10) % 2 === 0;
     } else {
         playerBody.visible = true;
+    }
+
+    // Flinch Animation
+    if (playerFlinchTimer > 0) {
+        playerFlinchTimer -= dt;
+        playerBody.rotation.x = -Math.PI / 4;
+    } else {
+        playerBody.rotation.x = 0;
     }
 
     if (gameState === 'EXPLORE' || gameState === 'QUIZ') {
         
         let isMoving = false;
 
-        if ((moveInput.forward !== 0 || moveInput.right !== 0) && !isAttacking) {
+        if ((moveInput.forward !== 0 || moveInput.right !== 0) && !isAttacking && playerFlinchTimer <= 0) {
             isMoving = true;
-
-            // Camera-relative movement: joystick up = camera's forward direction
-            const camTargetPos = new THREE.Vector3();
-            followCamGroup.getWorldPosition(camTargetPos);
-            const camFwd = player.position.clone().sub(camTargetPos);
-            camFwd.y = 0;
-            if (camFwd.length() < 0.001) camFwd.set(0, 0, -1);
-            else camFwd.normalize();
-            // Right vector: rotate camFwd 90° CW around Y
-            const camRight = new THREE.Vector3(-camFwd.z, 0, camFwd.x);
-
-            const moveVec = new THREE.Vector3()
-                .addScaledVector(camFwd, moveInput.forward)
-                .addScaledVector(camRight, moveInput.right);
-            moveVec.y = 0;
+            const moveVec = new THREE.Vector3(moveInput.right, 0, -moveInput.forward);
             moveVec.normalize().multiplyScalar(moveSpeed * dt);
-
+            
             player.position.add(moveVec);
-
-            // Arena Bounds
+            
             player.position.x = Math.max(-49, Math.min(49, player.position.x));
             player.position.z = Math.max(-49, Math.min(49, player.position.z));
 
-            // Obstacle Collision
             for(let o of obstacles) {
                 let dist = player.position.distanceTo(o.position);
                 if (dist < 1.2) {
@@ -880,7 +795,8 @@ function animate() {
             let diff = targetAngle - player.rotation.y;
             while(diff < -Math.PI) diff += Math.PI * 2;
             while(diff > Math.PI) diff -= Math.PI * 2;
-            player.rotation.y += diff * 10 * dt;
+            // Lowered turning speed for easier control
+            player.rotation.y += diff * 5.0 * dt; 
         }
 
         // Animate Attack
@@ -931,7 +847,7 @@ function animate() {
             if (charLegR) charLegR.rotation.x = 0;
             if (charArmL) charArmL.rotation.x = 0;
             if (charArmR) charArmR.rotation.x = 0;
-            playerBody.rotation.y = 0;
+            if (playerFlinchTimer <= 0) playerBody.rotation.y = 0;
         }
 
         // Monsters Logic
@@ -939,7 +855,9 @@ function animate() {
             if (gameState === 'EXPLORE') {
                 m.timer -= dt;
                 
-                const distToPlayer = m.mesh.position.distanceTo(player.position);
+                const dx = m.mesh.position.x - player.position.x;
+                const dz = m.mesh.position.z - player.position.z;
+                const distToPlayer = Math.sqrt(dx*dx + dz*dz);
                 
                 if (distToPlayer < 15) {
                     m.state = 'chase';
@@ -958,9 +876,14 @@ function animate() {
                     m.mesh.rotation.y = m.targetAngle;
                 }
 
-                m.mesh.position.addScaledVector(moveDir, m.speed * dt);
+                // If attacking, lunge forward fast
+                if (m.attackLunge > 0) {
+                    m.attackLunge -= dt;
+                    m.mesh.position.addScaledVector(moveDir, m.speed * 4 * dt);
+                } else {
+                    m.mesh.position.addScaledVector(moveDir, m.speed * dt);
+                }
                 
-                // Arena Bounds
                 m.mesh.position.x = Math.max(-49, Math.min(49, m.mesh.position.x));
                 m.mesh.position.z = Math.max(-49, Math.min(49, m.mesh.position.z));
                 
@@ -968,8 +891,9 @@ function animate() {
 
                 if (distToPlayer < 1.0 && invincibilityTimer <= 0) {
                     takeDamage(10);
-                    // Knockback monster
-                    m.mesh.position.addScaledVector(moveDir, -2.0);
+                    // Monster lunge animation
+                    m.attackLunge = 0.3;
+                    m.mesh.position.addScaledVector(moveDir, -1.0); // Step back to lunge
                 }
             } else {
                 m.mesh.position.y = 1.5 + Math.sin(Date.now() * 0.003 + m.timer) * 0.2;
@@ -992,12 +916,12 @@ function animate() {
             quizTimer -= dt;
             document.getElementById('time-count').innerText = Math.ceil(quizTimer);
             if (quizTimer <= 0) {
-                speak("時間切れです！");
+                speak("じかんぎれです！");
+                takeDamage(20);
                 handleAnswer(null);
             }
         }
 
-        // Particle physics
         for(let i=particles.length-1; i>=0; i--) {
             let p = particles[i];
             p.life -= dt;
@@ -1006,13 +930,12 @@ function animate() {
                 particles.splice(i, 1);
                 continue;
             }
-            p.vel.y -= 25 * dt; // gravity
+            p.vel.y -= 25 * dt; 
             p.mesh.position.addScaledVector(p.vel, dt);
             
-            // Floor collision
             if(p.mesh.position.y < 0.1) {
                 p.mesh.position.y = 0.1;
-                p.vel.y *= -0.5; // bounce
+                p.vel.y *= -0.5; 
                 p.vel.x *= 0.8;
                 p.vel.z *= 0.8;
             }
@@ -1022,7 +945,6 @@ function animate() {
             p.mesh.scale.setScalar(p.life);
         }
 
-        // Camera follow
         const targetCamPos = new THREE.Vector3();
         followCamGroup.getWorldPosition(targetCamPos);
         camera.position.lerp(targetCamPos, 5 * dt);
