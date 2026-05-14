@@ -557,6 +557,9 @@ function createPlayer() {
                     } else {
                         child.material.map = bodyTex;
                     }
+                    child.material.color.setHex(0xffffff); // Force white base color
+                    child.material.metalness = 0.0;        // Remove unwanted darkness/shine
+                    child.material.roughness = 0.8;
                     child.material.needsUpdate = true;
                 }
             }
