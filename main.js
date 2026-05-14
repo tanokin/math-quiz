@@ -237,15 +237,15 @@ function init() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.5; // Increased exposure
     container.appendChild(renderer.domElement);
 
     // Lighting
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444477, 0.6);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444477, 1.0); // Brighter
     hemiLight.position.set(0, 50, 0);
     scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfff0dd, 2.0);
+    const dirLight = new THREE.DirectionalLight(0xfff0dd, 3.0); // Brighter
     dirLight.position.set(-15, 30, 15);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 4096;
@@ -260,7 +260,7 @@ function init() {
     dirLight.shadow.camera.bottom = -d;
     scene.add(dirLight);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Brighter
     scene.add(ambientLight);
 
     scene.add(environmentGroup);
@@ -552,15 +552,14 @@ function createPlayer() {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 if (child.material) {
-                    if (child.name.toLowerCase().includes('sword') || child.name.toLowerCase().includes('weapon')) {
-                        child.material.map = swordTex;
-                    } else {
-                        child.material.map = bodyTex;
-                    }
-                    child.material.color.setHex(0xffffff); // Force white base color
-                    child.material.metalness = 0.0;        // Remove unwanted darkness/shine
-                    child.material.roughness = 0.8;
-                    child.material.needsUpdate = true;
+                    const isSword = child.name.toLowerCase().includes('sword') || child.name.toLowerCase().includes('weapon');
+                    const texMap = isSword ? swordTex : bodyTex;
+                    
+                    // Replace the material completely with a simpler, brighter material
+                    child.material = new THREE.MeshLambertMaterial({
+                        map: texMap,
+                        color: 0xffffff
+                    });
                 }
             }
         });
