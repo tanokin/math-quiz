@@ -1,12 +1,16 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 let scene, camera, renderer;
 let player, followCamGroup, swordGroup;
 let clock = new THREE.Clock();
 
 // Character body parts
-let playerBody, charLegL, charLegR, charArmL, charArmR;
-let slashMesh;
+let playerBody, slashMesh;
+let playerMixer = null;
+let playerAnimations = {};
+let currentAction = null;
+let playerModel = null;
 
 // Game State
 let gameState = 'STORY'; 
@@ -490,8 +494,10 @@ function performAttack() {
     if (gameState !== 'EXPLORE' || isAttacking) return;
     
     isAttacking = true;
-    attackTimer = 0.4;
+    attackTimer = 0.5;
     playSound('swing');
+
+    playAnim('attack');
 
     if (slashMesh) {
         slashMesh.visible = true;
@@ -526,74 +532,45 @@ function createPlayer() {
     playerBody = new THREE.Group();
     player.add(playerBody);
 
-    const matSkin = new THREE.MeshPhysicalMaterial({ color: '#ffccaa', roughness: 0.4, clearcoat: 0.1 });
-    const matHair = new THREE.MeshPhysicalMaterial({ color: '#4a2c11', roughness: 0.8, clearcoat: 0.2 });
-    const matHeadband = new THREE.MeshPhysicalMaterial({ color: '#f1c40f', roughness: 0.2, metalness: 0.6, clearcoat: 0.5 });
-    const matTunic = new THREE.MeshPhysicalMaterial({ color: '#0984e3', roughness: 0.8, clearcoat: 0.05 });
-    const matOrange = new THREE.MeshPhysicalMaterial({ color: '#e67e22', roughness: 0.8, clearcoat: 0.05 });
-    const matLeather = new THREE.MeshPhysicalMaterial({ color: '#5c3a21', roughness: 0.6, clearcoat: 0.2 });
-    const matSteel = new THREE.MeshPhysicalMaterial({ color: '#ecf0f1', roughness: 0.2, metalness: 0.9, clearcoat: 1.0 });
+    const loader = new GLTFLoader();
+    loader.load('assets/Warrior.glb', (gltf) => {
+        playerModel = gltf.scene;
+        playerModel.scale.set(0.6, 0.6, 0.6);
+        playerModel.rotation.y = Math.PI; // Fix for backwards-facing characters
+        
+        const texLoader = new THREE.TextureLoader();
+        const bodyTex = texLoader.load('assets/Warrior_Texture.png');
+        bodyTex.flipY = false; // Essential for GLTF UVs
+        bodyTex.colorSpace = THREE.SRGBColorSpace;
+        
+        const swordTex = texLoader.load('assets/Warrior_Sword_Texture.png');
+        swordTex.flipY = false;
+        swordTex.colorSpace = THREE.SRGBColorSpace;
+        
+        playerModel.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                if (child.material) {
+                    if (child.name.toLowerCase().includes('sword') || child.name.toLowerCase().includes('weapon')) {
+                        child.material.map = swordTex;
+                    } else {
+                        child.material.map = bodyTex;
+                    }
+                    child.material.needsUpdate = true;
+                }
+            }
+        });
 
-    const addMesh = (geo, mat, parent) => {
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        parent.add(mesh);
-        return mesh;
-    };
+        playerMixer = new THREE.AnimationMixer(playerModel);
+        gltf.animations.forEach((clip) => {
+            const name = clip.name.toLowerCase();
+            playerAnimations[name] = playerMixer.clipAction(clip);
+        });
 
-    const torsoGeo = new THREE.CylinderGeometry(0.35, 0.45, 0.8, 64, 32);
-    const torso = addMesh(torsoGeo, matTunic, playerBody);
-    torso.position.y = 1.1;
-
-    const headGroup = new THREE.Group();
-    headGroup.position.y = 1.8;
-    playerBody.add(headGroup);
-    addMesh(new THREE.SphereGeometry(0.32, 64, 64), matSkin, headGroup);
-
-    const hairGroup = new THREE.Group();
-    headGroup.add(hairGroup);
-    const coneGeo = new THREE.ConeGeometry(0.12, 0.45, 32, 16);
-    for(let i=0; i<10; i++) {
-        const spike = addMesh(coneGeo, matHair, hairGroup);
-        const angle = (i / 10) * Math.PI * 2;
-        const radius = 0.22;
-        spike.position.set(Math.cos(angle)*radius, 0.25, Math.sin(angle)*radius);
-        spike.rotation.x = -Math.sin(angle) * 0.6;
-        spike.rotation.z = Math.cos(angle) * 0.6;
-    }
-    const mainSpike = addMesh(new THREE.ConeGeometry(0.18, 0.7, 32, 16), matHair, hairGroup);
-    mainSpike.position.set(0, 0.45, -0.05);
-    mainSpike.rotation.x = -0.2;
-
-    charArmL = new THREE.Group();
-    charArmL.position.set(-0.5, 1.4, 0);
-    playerBody.add(charArmL);
-    addMesh(new THREE.CylinderGeometry(0.1, 0.08, 0.5, 32), matOrange, charArmL).position.y = -0.25;
-
-    charArmR = new THREE.Group();
-    charArmR.position.set(0.5, 1.4, 0);
-    playerBody.add(charArmR);
-    addMesh(new THREE.CylinderGeometry(0.1, 0.08, 0.5, 32), matOrange, charArmR).position.y = -0.25;
-
-    swordGroup = new THREE.Group();
-    swordGroup.position.set(0, -0.6, 0);
-    swordGroup.rotation.x = Math.PI / 2;
-    charArmR.add(swordGroup);
-    addMesh(new THREE.CylinderGeometry(0.03, 0.03, 0.25, 32), matHeadband, swordGroup);
-    const blade = addMesh(new THREE.CylinderGeometry(0.01, 0.06, 1.0, 4), matSteel, swordGroup);
-    blade.position.y = 0.6;
-    blade.rotation.y = Math.PI / 4;
-
-    charLegL = new THREE.Group();
-    charLegL.position.set(-0.2, 0.8, 0);
-    playerBody.add(charLegL);
-    addMesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6, 32), matOrange, charLegL).position.y = -0.3;
-
-    charLegR = new THREE.Group();
-    charLegR.position.set(0.2, 0.8, 0);
-    playerBody.add(charLegR);
-    addMesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6, 32), matOrange, charLegR).position.y = -0.3;
+        playAnim('idle');
+        playerBody.add(playerModel);
+    });
 
     const slashGeo = new THREE.TorusGeometry(2.5, 0.05, 16, 64, Math.PI);
     const slashMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
@@ -609,6 +586,19 @@ function createPlayer() {
 
     player.position.set(0, 0, 0);
     scene.add(player);
+}
+
+function playAnim(animNamePrefix) {
+    if (!playerMixer) return;
+    const name = Object.keys(playerAnimations).find(n => n.includes(animNamePrefix.toLowerCase()));
+    if (!name) return;
+    
+    const nextAction = playerAnimations[name];
+    if (currentAction === nextAction) return;
+    
+    if (currentAction) currentAction.fadeOut(0.2);
+    nextAction.reset().fadeIn(0.2).play();
+    currentAction = nextAction;
 }
 
 function startGame() {
@@ -752,6 +742,8 @@ function animate() {
     const dt = Math.min(now - lastTime, 0.1);
     lastTime = now;
 
+    if (playerMixer) playerMixer.update(dt);
+
     // Invincibility Blinking
     if (invincibilityTimer > 0) {
         invincibilityTimer -= dt;
@@ -802,51 +794,25 @@ function animate() {
         // Animate Attack
         if (isAttacking) {
             attackTimer -= dt;
-            const progress = 1.0 - (attackTimer / 0.4);
+            const progress = 1.0 - (attackTimer / 0.5);
 
-            if (progress < 0.3) {
-                playerBody.rotation.y = -Math.PI / 4 * (progress / 0.3);
-                charArmR.rotation.x = -Math.PI / 4;
-                charArmR.rotation.z = Math.PI / 4;
-                if (slashMesh) slashMesh.visible = false;
-            } else {
-                const swingProg = (progress - 0.3) / 0.7;
-                playerBody.rotation.y = -Math.PI / 4 + (Math.PI * 1.5) * swingProg;
-                charArmR.rotation.x = -Math.PI / 4;
-                charArmR.rotation.z = Math.PI / 4 - (Math.PI * 0.8) * swingProg;
-
-                if (slashMesh) {
-                    slashMesh.visible = true;
-                    slashMesh.scale.setScalar(0.5 + swingProg * 0.5);
-                    slashMesh.material.opacity = 1.0 - swingProg;
-                    slashMesh.rotation.z = -Math.PI / 2 - Math.PI * swingProg;
-                }
+            if (slashMesh) {
+                slashMesh.visible = true;
+                slashMesh.scale.setScalar(0.5 + progress * 0.5);
+                slashMesh.material.opacity = 1.0 - progress;
+                slashMesh.rotation.z = -Math.PI / 2 - Math.PI * progress;
             }
 
             if (attackTimer <= 0) {
                 isAttacking = false;
-                playerBody.rotation.y = 0;
-                charArmR.rotation.z = 0;
                 if (slashMesh) slashMesh.visible = false;
             }
         }
 
         if (isMoving && !isAttacking) {
-            const time = Date.now() * 0.015;
-            const swing = Math.sin(time) * 0.8;
-            if (charLegL && charLegR) {
-                charLegL.rotation.x = swing;
-                charLegR.rotation.x = -swing;
-            }
-            if (charArmL && charArmR) {
-                charArmL.rotation.x = -swing;
-                charArmR.rotation.x = swing;
-            }
+            playAnim('run');
         } else if (!isAttacking) {
-            if (charLegL) charLegL.rotation.x = 0;
-            if (charLegR) charLegR.rotation.x = 0;
-            if (charArmL) charArmL.rotation.x = 0;
-            if (charArmR) charArmR.rotation.x = 0;
+            playAnim('idle');
             if (playerFlinchTimer <= 0) playerBody.rotation.y = 0;
         }
 
