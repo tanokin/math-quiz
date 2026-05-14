@@ -715,22 +715,53 @@ function handleAnswer(selectedAns) {
         correctAnswersInLevel++;
         updateProgressUI();
         
+        // 正解演出
+        playAnim('cheer');
+        
+        // キラキラパーティクル
+        for(let i=0; i<30; i++) {
+            const geo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xFFD700 });
+            const p = new THREE.Mesh(geo, mat);
+            p.position.copy(player.position);
+            p.position.y += 1.0;
+            p.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 10,
+                Math.random() * 15,
+                (Math.random() - 0.5) * 10
+            );
+            p.lifetime = 1.5 + Math.random() * 0.5;
+            scene.add(p);
+            particles.push({ mesh: p, vel: p.velocity, life: p.lifetime });
+        }
+        
+        gameState = 'CELEBRATE'; // 演出用の待機状態
+
+        document.getElementById('quiz-ui').classList.add('hidden');
+        document.getElementById('quiz-answer-buttons').classList.add('hidden');
+        document.getElementById('instruction-text').innerHTML = "大せいかい！";
+
         if (correctAnswersInLevel >= 5) {
             setTimeout(() => {
                 loadLevel(currentLevelIdx + 1);
-            }, 1000);
+            }, 2000);
+        } else {
+            setTimeout(() => {
+                gameState = 'EXPLORE';
+                document.getElementById('instruction-text').innerHTML = "クリスタルを さがしてね！";
+            }, 2000);
         }
     } else {
         playSound('damage');
         speak("ざんねん、ちがいます");
         takeDamage(20);
+        
+        document.getElementById('quiz-ui').classList.add('hidden');
+        document.getElementById('quiz-answer-buttons').classList.add('hidden');
+        document.getElementById('instruction-text').innerHTML = "クリスタルを さがしてね！";
+        
+        gameState = 'EXPLORE';
     }
-
-    document.getElementById('quiz-ui').classList.add('hidden');
-    document.getElementById('quiz-answer-buttons').classList.add('hidden');
-    document.getElementById('instruction-text').innerHTML = "クリスタルを さがしてね！";
-    
-    gameState = 'EXPLORE';
 }
 
 function onWindowResize() {
@@ -762,11 +793,11 @@ function animate() {
         playerBody.rotation.x = 0;
     }
 
-    if (gameState === 'EXPLORE' || gameState === 'QUIZ') {
+    if (gameState === 'EXPLORE' || gameState === 'QUIZ' || gameState === 'CELEBRATE') {
         
         let isMoving = false;
 
-        if ((moveInput.forward !== 0 || moveInput.right !== 0) && !isAttacking && playerFlinchTimer <= 0) {
+        if (gameState === 'EXPLORE' && (moveInput.forward !== 0 || moveInput.right !== 0) && !isAttacking && playerFlinchTimer <= 0) {
             isMoving = true;
             const moveVec = new THREE.Vector3(moveInput.right, 0, -moveInput.forward);
             moveVec.normalize().multiplyScalar(moveSpeed * dt);
@@ -811,7 +842,9 @@ function animate() {
             }
         }
 
-        if (isMoving && !isAttacking) {
+        if (gameState === 'CELEBRATE') {
+            // Anim is already set to cheer, do nothing
+        } else if (isMoving && !isAttacking) {
             playAnim('run');
         } else if (!isAttacking) {
             playAnim('idle');
