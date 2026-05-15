@@ -841,6 +841,18 @@ function animate() {
 
     if (gameState === 'EXPLORE' || gameState === 'QUIZ' || gameState === 'CELEBRATE') {
         
+        // Update moving platforms independently of player movement
+        for (let p of platforms) {
+            if (p.isMoving) {
+                const offset = Math.sin(now * 0.5) * 5.0; // move range 5, slower speed
+                if (p.moveAxis === 'x') {
+                    p.mesh.position.x = p.startX + offset;
+                } else {
+                    p.mesh.position.z = p.startZ + offset;
+                }
+            }
+        }
+
         let isMoving = false;
 
         if (gameState === 'EXPLORE' && (moveInput.forward !== 0 || moveInput.right !== 0) && !isAttacking && playerFlinchTimer <= 0) {
@@ -848,18 +860,6 @@ function animate() {
             const moveVec = new THREE.Vector3(moveInput.right, 0, -moveInput.forward);
             moveVec.normalize().multiplyScalar(moveSpeed * dt);
             
-            // Update moving platforms
-            for (let p of platforms) {
-                if (p.isMoving) {
-                    const offset = Math.sin(now * 1.5) * 5.0; // move range 5
-                    if (p.moveAxis === 'x') {
-                        p.mesh.position.x = p.startX + offset;
-                    } else {
-                        p.mesh.position.z = p.startZ + offset;
-                    }
-                }
-            }
-
             // X and Z movement
             player.position.add(moveVec);
             
@@ -939,7 +939,7 @@ function animate() {
             player.position.y = groundY;
             if (onPlatform && onPlatform.isMoving && !isJumping) {
                 // Carry player on moving platform
-                const speed = Math.cos(now * 1.5) * 1.5 * 5.0 * dt;
+                const speed = Math.cos(now * 0.5) * 0.5 * 5.0 * dt;
                 if (onPlatform.moveAxis === 'x') player.position.x += speed;
                 else player.position.z += speed;
             }
