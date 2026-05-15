@@ -69,7 +69,12 @@ const textureLoader = new THREE.TextureLoader();
 const cachedTextures = {};
 
 function loadTexture(path, repeat = null) {
-    if (cachedTextures[path]) return cachedTextures[path];
+    if (cachedTextures[path]) {
+        if (!repeat) return cachedTextures[path];
+        // If repeat is provided but we return cached, it might have wrong repeat. 
+        // We shouldn't use `loadTexture` with repeat anymore for platforms, but we'll keep it for backward compatibility.
+        return cachedTextures[path];
+    }
     const tex = textureLoader.load(path);
     tex.colorSpace = THREE.SRGBColorSpace;
     if (repeat) {
@@ -78,6 +83,16 @@ function loadTexture(path, repeat = null) {
         tex.repeat.set(repeat[0], repeat[1]);
     }
     cachedTextures[path] = tex;
+    return tex;
+}
+
+function getTextureWithRepeat(path, repeatU, repeatV) {
+    const baseTex = loadTexture(path);
+    const tex = baseTex.clone();
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatU, repeatV);
+    tex.needsUpdate = true;
     return tex;
 }
 
@@ -392,9 +407,26 @@ function loadLevel(levelIndex, isResume = false) {
 
     // Platform helper
     function createPlatform(x, y, z, w, d, h, isMoving = false, moveAxis = 'x') {
-        const mat = new THREE.MeshStandardMaterial({ map: loadTexture(config.floor, [w/5, d/5]), roughness: 0.9 });
+        const topTex = getTextureWithRepeat(config.floor, Math.max(1, w/5), Math.max(1, d/5));
+        const sideTexX = getTextureWithRepeat(config.wall, Math.max(1, d/5), Math.max(1, h/5));
+        const sideTexZ = getTextureWithRepeat(config.wall, Math.max(1, w/5), Math.max(1, h/5));
+        
+        const matTop = new THREE.MeshStandardMaterial({ map: topTex, roughness: 0.8 });
+        const matSideX = new THREE.MeshStandardMaterial({ map: sideTexX, roughness: 0.9 });
+        const matSideZ = new THREE.MeshStandardMaterial({ map: sideTexZ, roughness: 0.9 });
+        const matBottom = new THREE.MeshStandardMaterial({ color: 0x222222 }); // Dark bottom
+
+        const matArray = [
+            matSideX, // right (x+)
+            matSideX, // left (x-)
+            matTop,   // top (y+)
+            matBottom,// bottom (y-)
+            matSideZ, // front (z+)
+            matSideZ  // back (z-)
+        ];
+
         const geo = new THREE.BoxGeometry(w, h, d);
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(geo, matArray);
         mesh.position.set(x, y - h/2, z); 
         mesh.receiveShadow = true;
         mesh.castShadow = true;
