@@ -446,19 +446,7 @@ function loadLevel(levelIndex, isResume = false) {
         if (config.monsters > 15) spawnMonster(fx - 2, fz - 2, 2); // extra monsters for harder levels
     }
 
-    // Spawn Crystals
-    const crystalGeo = new THREE.OctahedronGeometry(0.5);
-    const crystalMat = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.1 });
-    for(let i=0; i<5; i++) { 
-        const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-        let cx = (Math.random() - 0.5) * 80;
-        let cz = (Math.random() - 0.5) * 80;
-        if (Math.abs(cx) < 10) cx += 20;
-        crystal.position.set(cx, 1.0, cz);
-        crystal.castShadow = true;
-        scene.add(crystal);
-        crystals.push(crystal);
-    }
+
 
     player.position.set(0, 2, 0); 
     player.rotation.set(0, Math.PI, 0); 
