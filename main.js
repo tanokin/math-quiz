@@ -128,6 +128,19 @@ function speak(text) {
     }
 }
 
+function speakAction(text) {
+    if ('speechSynthesis' in window && (gameState === 'EXPLORE' || gameState === 'CELEBRATE')) {
+        if (gameState === 'QUIZ') return;
+        window.speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(text);
+        ut.lang = 'ja-JP';
+        ut.rate = 1.5;
+        ut.pitch = 1.8;
+        ut.volume = 0.5;
+        window.speechSynthesis.speak(ut);
+    }
+}
+
 // ----------------------------------------------------
 // SFX (Synthesizer via Web Audio API)
 // ----------------------------------------------------
@@ -499,6 +512,7 @@ function loadLevel(levelIndex, isResume = false) {
         // Place crystal on the final island
         const crystal = new THREE.Mesh(crystalGeo, crystalMat);
         crystal.position.set(fx, 2 + 1.0, fz); // 1.0 above surface
+        crystal.baseY = crystal.position.y;
         crystal.castShadow = true;
         scene.add(crystal);
         crystals.push(crystal);
@@ -574,6 +588,7 @@ function performAttack() {
     isAttacking = true;
     attackTimer = 0.5;
     playSound('swing');
+    speakAction('やあっ！');
 
     playAnim('attack');
 
@@ -610,6 +625,7 @@ function performJump() {
     isJumping = true;
     velocityY = JUMP_POWER;
     playSound('swing'); // Whoosh sound for jump
+    speakAction('えいっ！');
 }
 
 function createPlayer() {
@@ -684,13 +700,8 @@ function playAnim(animNamePrefix) {
 
     nextAction.reset();
 
-    // Reverse attack animation (inside to outside)
-    if (animNamePrefix === 'attack') {
-        nextAction.timeScale = -1;
-        nextAction.time = nextAction.getClip().duration;
-    } else {
-        nextAction.timeScale = 1;
-    }
+    // Normal play speed
+    nextAction.timeScale = 1;
 
     nextAction.fadeIn(0.2).play();
     currentAction = nextAction;
@@ -960,8 +971,8 @@ function animate() {
                 slashMesh.visible = true;
                 slashMesh.scale.setScalar(0.5 + progress * 0.5);
                 slashMesh.material.opacity = 1.0 - progress;
-                // Reverse slash direction (inside to outside)
-                slashMesh.rotation.z = -Math.PI / 2 + Math.PI * progress;
+                // Swing from inside to outside
+                slashMesh.rotation.z = Math.PI / 2 - Math.PI * progress;
             }
 
             if (attackTimer <= 0) {
@@ -1083,8 +1094,10 @@ function animate() {
         if (gameState === 'EXPLORE') {
             crystals.forEach((crystal, index) => {
                 crystal.rotation.y += dt;
-                crystal.position.y = 1.0 + Math.sin(Date.now() * 0.002) * 0.2;
+                crystal.position.y = crystal.baseY + Math.sin(Date.now() * 0.002) * 0.2;
                 if (player.position.distanceTo(crystal.position) < 1.5) {
+                    playSound('crystal');
+                    spawnExplosion(crystal.position); // Add particle effects!
                     scene.remove(crystal);
                     crystals.splice(index, 1);
                     triggerQuiz();
