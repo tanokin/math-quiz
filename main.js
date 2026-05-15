@@ -582,10 +582,6 @@ function createPlayer() {
     slashMesh.visible = false;
     player.add(slashMesh);
 
-    followCamGroup = new THREE.Group();
-    followCamGroup.position.set(0, 2.5, 4);
-    player.add(followCamGroup);
-
     player.position.set(0, 0, 0);
     scene.add(player);
 }
@@ -923,6 +919,7 @@ function animate() {
             }
         }
 
+        // Remove particles
         for(let i=particles.length-1; i>=0; i--) {
             let p = particles[i];
             p.life -= dt;
@@ -946,12 +943,13 @@ function animate() {
             p.mesh.scale.setScalar(p.life);
         }
 
-        const targetCamPos = new THREE.Vector3();
-        followCamGroup.getWorldPosition(targetCamPos);
+        // Camera Update (Fixed Angle Follow)
+        const targetCamPos = player.position.clone();
+        targetCamPos.add(new THREE.Vector3(0, 4.0, 5.0));
         camera.position.lerp(targetCamPos, 5 * dt);
         
         const lookAtPos = player.position.clone();
-        lookAtPos.y += 1.5;
+        lookAtPos.y += 1.0;
         camera.lookAt(lookAtPos);
     }
 
