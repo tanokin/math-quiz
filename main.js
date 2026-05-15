@@ -32,22 +32,22 @@ const LEVELS = [
     { 
         id: 1, name: "Castle Dungeon", 
         sky: 'assets/realistic_sky.png', floor: 'assets/realistic_stone_floor.png', wall: 'assets/realistic_castle_wall.png', 
-        monsters: 25, genMath: () => genMathTask(1, 1), bgmParams: { r: 100, g: 100, b: 150 }
+        monsters: 25, genMath: () => genMathTask(1), bgmParams: { r: 100, g: 100, b: 150 }
     },
     { 
         id: 2, name: "Desert Ruins", 
         sky: 'assets/desert_sky.png', floor: 'assets/desert_floor.png', wall: 'assets/desert_wall.png', 
-        monsters: 35, genMath: () => genMathTask(1, 2), bgmParams: { r: 200, g: 180, b: 100 }
+        monsters: 35, genMath: () => genMathTask(2), bgmParams: { r: 200, g: 180, b: 100 }
     },
     { 
         id: 3, name: "Shallow Ocean", 
         sky: 'assets/realistic_sky.png', floor: 'assets/ocean_floor.png', wall: 'assets/ocean_wall.png', 
-        monsters: 50, genMath: () => genMathTask(2, 2), bgmParams: { r: 50, g: 150, b: 200 }
+        monsters: 50, genMath: () => genMathTask(3), bgmParams: { r: 50, g: 150, b: 200 }
     },
     { 
         id: 4, name: "Deep Forest", 
         sky: 'assets/forest_sky.png', floor: 'assets/forest_floor.png', wall: 'assets/forest_wall.png', 
-        monsters: 70, genMath: () => genMathTask(3, 2), bgmParams: { r: 50, g: 180, b: 80 }
+        monsters: 70, genMath: () => genMathTask(4), bgmParams: { r: 50, g: 180, b: 80 }
     }
 ];
 
@@ -197,22 +197,45 @@ function spawnExplosion(pos) {
     }
 }
 
-// Math generator (Multiple Choice)
-function genMathTask(digitsA, digitsB) {
-    const minA = digitsA === 1 ? 1 : Math.pow(10, digitsA - 1);
-    const maxA = Math.pow(10, digitsA) - 1;
-    const minB = digitsB === 1 ? 1 : Math.pow(10, digitsB - 1);
-    const maxB = Math.pow(10, digitsB) - 1;
-    const a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
-    const b = Math.floor(Math.random() * (maxB - minB + 1)) + minB;
-    const trueAns = a + b;
+// Math generator (Tailored for 1st Graders)
+function genMathTask(levelId) {
+    let a, b, trueAns;
+    let isSub = false;
     
-    // Generate 3 wrong answers
+    if (levelId === 1) {
+        // 1学期レベル: 繰り上がりなしのたしざん (和が10以下)
+        a = Math.floor(Math.random() * 9) + 1; // 1-9
+        b = Math.floor(Math.random() * (10 - a)) + 1; // a+b <= 10
+        trueAns = a + b;
+    } else if (levelId === 2) {
+        // 1学期レベル: 繰り下がりなしのひきざん (10以下のひきざん)
+        isSub = true;
+        a = Math.floor(Math.random() * 9) + 2; // 2-10
+        b = Math.floor(Math.random() * (a - 1)) + 1; // b < a
+        trueAns = a - b;
+    } else if (levelId === 3) {
+        // 2学期レベル: 繰り上がりのあるたしざん (和が11〜18)
+        a = Math.floor(Math.random() * 8) + 2; // 2-9
+        let minB = 11 - a;
+        if (minB > 9) minB = 9; 
+        if (minB < 2) minB = 2;
+        b = Math.floor(Math.random() * (9 - minB + 1)) + minB; 
+        trueAns = a + b;
+    } else {
+        // 2学期レベル: 繰り下がりのあるひきざん (11〜18 から 2〜9 を引く)
+        isSub = true;
+        a = Math.floor(Math.random() * 8) + 11; // 11-18
+        let minB = a - 9; 
+        b = Math.floor(Math.random() * (9 - minB + 1)) + minB;
+        trueAns = a - b;
+    }
+    
+    // Generate 3 wrong answers (keep them close to the true answer)
     let choices = [trueAns];
     while(choices.length < 4) {
-        const offset = Math.floor(Math.random() * 10) + 1;
+        const offset = Math.floor(Math.random() * 3) + 1;
         const fake = trueAns + (Math.random() > 0.5 ? offset : -offset);
-        if (fake > 0 && !choices.includes(fake)) {
+        if (fake >= 0 && !choices.includes(fake)) {
             choices.push(fake);
         }
     }
@@ -221,13 +244,20 @@ function genMathTask(digitsA, digitsB) {
     choices.sort(() => Math.random() - 0.5);
 
     // Formats
-    const formats = [
-        { q: `${a} ＋ ${b} ＝ ？`, r: `${a} たす ${b} は なに？` },
-        { q: `りんごが ${a}こ ありました。\nさらに ${b}こ もらうと、\nぜんぶで いくつ？`, r: `りんごが ${a}こ ありました。さらに ${b}こ もらうと、ぜんぶで いくつ？` },
-        { q: `コインを ${a}まい もっています。\nたからばこから ${b}まい みつけると、\nぜんぶで なんまい？`, r: `コインを ${a}まい もっています。たからばこから ${b}まい みつけると、ぜんぶで なんまい？` },
-        { q: `モンスターを ${a}ひき たおしました。\nさらに ${b}ひき たおすと、\nぜんぶで なんびき？`, r: `モンスターを ${a}ひき たおしました。さらに ${b}ひき たおすと、ぜんぶで なんびき？` },
-        { q: `クッキーを ${a}まい やきました。\nさらに ${b}まい やくと、\nぜんぶで なんまい？`, r: `クッキーを ${a}まい やきました。さらに ${b}まい やくと、ぜんぶで なんまい？` }
-    ];
+    let formats = [];
+    if (!isSub) {
+        formats = [
+            { q: `${a} ＋ ${b} ＝ ？`, r: `${a} たす ${b} は なに？` },
+            { q: `りんごが ${a}こ ありました。\nさらに ${b}こ もらうと、\nぜんぶで いくつ？`, r: `りんごが ${a}こ ありました。さらに ${b}こ もらうと、ぜんぶで いくつ？` },
+            { q: `モンスターを ${a}ひき たおしました。\nさらに ${b}ひき たおすと、\nぜんぶで なんびき？`, r: `モンスターを ${a}ひき たおしました。さらに ${b}ひき たおすと、ぜんぶで なんびき？` }
+        ];
+    } else {
+        formats = [
+            { q: `${a} － ${b} ＝ ？`, r: `${a} ひく ${b} は なに？` },
+            { q: `りんごが ${a}こ ありました。\n${b}こ たべると、\nのこりは いくつ？`, r: `りんごが ${a}こ ありました。${b}こ たべると、のこりは いくつ？` },
+            { q: `コインを ${a}まい もっています。\n${b}まい つかうと、\nのこりは なんまい？`, r: `コインを ${a}まい もっています。${b}まい つかうと、のこりは なんまい？` }
+        ];
+    }
     
     const format = formats[Math.floor(Math.random() * formats.length)];
     
@@ -979,7 +1009,7 @@ function animate() {
 
         // Death by falling
         if (player.position.y < -15) {
-            takeDamage(25);
+            takeDamage(10); // Less punishing for 1st graders
             if (health > 0) {
                 player.position.set(0, 5, 0); // Respawn at center
                 velocityY = 0;
