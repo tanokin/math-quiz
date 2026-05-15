@@ -20,6 +20,10 @@ let moveInput = { forward: 0, right: 0 };
 let moveSpeed = 4.0; // Slowed down from 6.0 for better control
 let invincibilityTimer = 0;
 let playerFlinchTimer = 0;
+let isJumping = false;
+let velocityY = 0;
+const GRAVITY = 25;
+const JUMP_POWER = 10;
 
 // Levels Config
 let currentLevelIdx = 0;
@@ -295,6 +299,9 @@ function init() {
 
     document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); performAttack(); });
     document.getElementById('btn-attack').addEventListener('mousedown', (e) => { e.preventDefault(); performAttack(); });
+    
+    document.getElementById('btn-jump').addEventListener('touchstart', (e) => { e.preventDefault(); performJump(); });
+    document.getElementById('btn-jump').addEventListener('mousedown', (e) => { e.preventDefault(); performJump(); });
 
     // Setup multiple choice answer buttons
     const answerBtns = document.querySelectorAll('.quiz-answer-btn');
@@ -312,6 +319,7 @@ function init() {
         if(e.code === 'KeyA' || e.code === 'ArrowLeft') moveInput.right = -1;
         if(e.code === 'KeyD' || e.code === 'ArrowRight') moveInput.right = 1;
         if(e.code === 'Space') performAttack();
+        if(e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyC') performJump();
     });
     window.addEventListener('keyup', (e) => {
         if(e.code === 'KeyW' || e.code === 'ArrowUp') moveInput.forward = 0;
@@ -550,6 +558,14 @@ function performAttack() {
             }
         }
     }
+}
+
+function performJump() {
+    if (gameState !== 'EXPLORE' || isJumping || isAttacking || playerFlinchTimer > 0) return;
+    
+    isJumping = true;
+    velocityY = JUMP_POWER;
+    playSound('swing'); // Whoosh sound for jump
 }
 
 function createPlayer() {
@@ -850,6 +866,7 @@ function animate() {
             const moveVec = new THREE.Vector3(moveInput.right, 0, -moveInput.forward);
             moveVec.normalize().multiplyScalar(moveSpeed * dt);
             
+            // X and Z movement
             player.position.add(moveVec);
             
             player.position.x = Math.max(-49, Math.min(49, player.position.x));
@@ -891,11 +908,27 @@ function animate() {
             }
         }
 
+        // Vertical Movement (Gravity & Jumping)
+        if (isJumping || player.position.y > 0) {
+            velocityY -= GRAVITY * dt;
+            player.position.y += velocityY * dt;
+            
+            if (player.position.y <= 0) {
+                player.position.y = 0;
+                velocityY = 0;
+                isJumping = false;
+            }
+        }
+
         if (gameState === 'CELEBRATE') {
             // Anim is already set to cheer, do nothing
-        } else if (isMoving && !isAttacking) {
+        } else if (isAttacking) {
+            // Anim handled in performAttack (attack clip)
+        } else if (isJumping) {
+            playAnim('jump');
+        } else if (isMoving) {
             playAnim('run');
-        } else if (!isAttacking) {
+        } else {
             playAnim('idle');
             if (playerFlinchTimer <= 0) playerBody.rotation.y = 0;
         }
