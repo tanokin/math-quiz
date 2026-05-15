@@ -55,7 +55,7 @@ const LEVELS = [
 let environmentGroup = new THREE.Group();
 let monsters = [];
 let crystals = [];
-let obstacles = [];
+let platforms = [];
 let particles = [];
 
 let currentQuestion = null;
@@ -390,61 +390,60 @@ function loadLevel(levelIndex, isResume = false) {
     document.getElementById('level-count').innerText = config.id;
     updateProgressUI();
 
-    // Clear old env
-    while(environmentGroup.children.length > 0){ 
-        environmentGroup.remove(environmentGroup.children[0]); 
-    }
-    crystals.forEach(c => scene.remove(c));
-    crystals = [];
-    monsters.forEach(m => scene.remove(m.mesh));
-    monsters = [];
-    obstacles = [];
-
-    // Sky & Fog
-    scene.background = loadTexture(config.sky);
-    scene.background.mapping = THREE.EquirectangularReflectionMapping;
-    scene.fog.color.setRGB(config.bgmParams.r/255, config.bgmParams.g/255, config.bgmParams.b/255);
-
-    // Floor
-    const floorMat = new THREE.MeshStandardMaterial({ map: loadTexture(config.floor, [50, 50]), roughness: 0.9 });
-    const floorGeo = new THREE.PlaneGeometry(100, 100);
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    environmentGroup.add(floor);
-
-    // Arena Walls
-    const wallMat = new THREE.MeshStandardMaterial({ map: loadTexture(config.wall, [25, 2]), roughness: 0.8 });
-    const wallGeo = new THREE.BoxGeometry(100, 6, 2);
-    
-    const wallN = new THREE.Mesh(wallGeo, wallMat); wallN.position.set(0, 3, -50);
-    const wallS = new THREE.Mesh(wallGeo, wallMat); wallS.position.set(0, 3, 50);
-    const wallE = new THREE.Mesh(wallGeo, wallMat); wallE.rotation.y = Math.PI/2; wallE.position.set(50, 3, 0);
-    const wallW = new THREE.Mesh(wallGeo, wallMat); wallW.rotation.y = Math.PI/2; wallW.position.set(-50, 3, 0);
-    
-    [wallN, wallS, wallE, wallW].forEach(w => {
-        w.receiveShadow = true;
-        w.castShadow = true;
-        environmentGroup.add(w);
-    });
-
-    // Generate Obstacles
-    const barrelGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16);
-    const crateGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-    const obstacleMat = new THREE.MeshPhysicalMaterial({ color: '#8B4513', roughness: 0.9 });
-    
-    for(let i=0; i<40; i++) {
-        const isBarrel = Math.random() > 0.5;
-        const mesh = new THREE.Mesh(isBarrel ? barrelGeo : crateGeo, obstacleMat);
-        mesh.position.set((Math.random() - 0.5) * 90, isBarrel ? 0.6 : 0.75, (Math.random() - 0.5) * 90);
-        mesh.rotation.y = Math.random() * Math.PI;
-        mesh.castShadow = true;
+    // Platform helper
+    function createPlatform(x, y, z, w, d, h, isMoving = false, moveAxis = 'x') {
+        const mat = new THREE.MeshStandardMaterial({ map: loadTexture(config.floor, [w/5, d/5]), roughness: 0.9 });
+        const geo = new THREE.BoxGeometry(w, h, d);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, y - h/2, z); 
         mesh.receiveShadow = true;
-        
-        if (mesh.position.distanceTo(new THREE.Vector3(0,0,0)) < 5) continue;
-
+        mesh.castShadow = true;
         environmentGroup.add(mesh);
-        obstacles.push(mesh);
+        
+        const plat = {
+            mesh, startX: x, startZ: z, w, d, h, isMoving, moveAxis,
+            surfaceY: y
+        };
+        platforms.push(plat);
+        return plat;
+    }
+
+    // Generate Platformer Level
+    // Start island
+    createPlatform(0, 0, 0, 12, 12, 2, false);
+
+    // 5 branches for 5 crystals
+    const angles = [0, Math.PI*2/5, Math.PI*4/5, Math.PI*6/5, Math.PI*8/5];
+    
+    const crystalGeo = new THREE.OctahedronGeometry(0.5);
+    const crystalMat = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.1 });
+
+    for (let i=0; i<5; i++) {
+        const dx = Math.sin(angles[i]);
+        const dz = Math.cos(angles[i]);
+
+        // Path segment 1: Static stepping stones (climbing up)
+        createPlatform(dx * 10, 1, dz * 10, 4, 4, 2, false);
+        createPlatform(dx * 16, 2, dz * 16, 4, 4, 4, false);
+
+        // Path segment 2: Moving platform gap
+        createPlatform(dx * 25, 2, dz * 25, 4, 4, 1, true, (i%2===0)?'x':'z');
+
+        // Path segment 3: Final island
+        let fx = dx * 36;
+        let fz = dz * 36;
+        createPlatform(fx, 2, fz, 10, 10, 2, false);
+
+        // Place crystal on the final island
+        const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+        crystal.position.set(fx, 2 + 1.0, fz); // 1.0 above surface
+        crystal.castShadow = true;
+        scene.add(crystal);
+        crystals.push(crystal);
+
+        // Spawn monsters on the final island
+        spawnMonster(fx + 2, fz + 2, 2);
+        if (config.monsters > 15) spawnMonster(fx - 2, fz - 2, 2); // extra monsters for harder levels
     }
 
     // Spawn Crystals
@@ -461,21 +460,16 @@ function loadLevel(levelIndex, isResume = false) {
         crystals.push(crystal);
     }
 
-    // Spawn Monsters
-    for(let i=0; i<config.monsters; i++) {
-        spawnMonster((Math.random() - 0.5) * 90, (Math.random() - 0.5) * 90);
-    }
-
-    player.position.set(0, 0, 0); 
+    player.position.set(0, 2, 0); 
     player.rotation.set(0, Math.PI, 0); 
     gameState = 'EXPLORE';
 }
 
-function spawnMonster(xPos, zPos) {
+function spawnMonster(xPos, zPos, yPos = 0) {
     if (Math.abs(xPos) < 10 && Math.abs(zPos) < 10) xPos += 20; 
 
     const group = new THREE.Group();
-    group.position.set(xPos, 1.5, zPos);
+    group.position.set(xPos, yPos + 1.5, zPos);
     
     const boneMat = new THREE.MeshPhysicalMaterial({ color: '#f5f6fa', roughness: 0.5, clearcoat: 0.2 });
     const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.4, 64, 64), boneMat);
@@ -866,18 +860,36 @@ function animate() {
             const moveVec = new THREE.Vector3(moveInput.right, 0, -moveInput.forward);
             moveVec.normalize().multiplyScalar(moveSpeed * dt);
             
+            // Update moving platforms
+            for (let p of platforms) {
+                if (p.isMoving) {
+                    const offset = Math.sin(now * 1.5) * 5.0; // move range 5
+                    if (p.moveAxis === 'x') {
+                        p.mesh.position.x = p.startX + offset;
+                    } else {
+                        p.mesh.position.z = p.startZ + offset;
+                    }
+                }
+            }
+
             // X and Z movement
             player.position.add(moveVec);
             
-            player.position.x = Math.max(-49, Math.min(49, player.position.x));
-            player.position.z = Math.max(-49, Math.min(49, player.position.z));
-
-            for(let o of obstacles) {
-                let dist = player.position.distanceTo(o.position);
-                if (dist < 1.2) {
-                    let push = player.position.clone().sub(o.position).normalize().multiplyScalar(1.2 - dist);
-                    push.y = 0;
-                    player.position.add(push);
+            // Horizontal Platform Collision (prevent walking through walls)
+            for (let p of platforms) {
+                let px = p.mesh.position.x;
+                let pz = p.mesh.position.z;
+                if (player.position.y < p.surfaceY - 0.2 && player.position.y > p.surfaceY - p.h - 1.0) {
+                    if (Math.abs(player.position.x - px) < p.w/2 + 0.5 &&
+                        Math.abs(player.position.z - pz) < p.d/2 + 0.5) {
+                        let dx = player.position.x - px;
+                        let dz = player.position.z - pz;
+                        if (Math.abs(dx) > Math.abs(dz)) {
+                            player.position.x = px + Math.sign(dx) * (p.w/2 + 0.51);
+                        } else {
+                            player.position.z = pz + Math.sign(dz) * (p.d/2 + 0.51);
+                        }
+                    }
                 }
             }
 
@@ -908,13 +920,48 @@ function animate() {
             }
         }
 
-        // Vertical Movement (Gravity & Jumping)
-        if (isJumping || player.position.y > 0) {
+        // Vertical Movement (Gravity, Jumping, & Platform Support)
+        let groundY = -100; // Abyss
+        let onPlatform = null;
+
+        for (let p of platforms) {
+            let px = p.mesh.position.x;
+            let pz = p.mesh.position.z;
+            if (player.position.x >= px - p.w/2 - 0.4 && player.position.x <= px + p.w/2 + 0.4 &&
+                player.position.z >= pz - p.d/2 - 0.4 && player.position.z <= pz + p.d/2 + 0.4) {
+                if (player.position.y >= p.surfaceY - 0.5) { // Can step up slightly
+                    if (p.surfaceY > groundY) {
+                        groundY = p.surfaceY;
+                        onPlatform = p;
+                    }
+                }
+            }
+        }
+
+        if (isJumping || player.position.y > groundY) {
             velocityY -= GRAVITY * dt;
             player.position.y += velocityY * dt;
             
-            if (player.position.y <= 0) {
-                player.position.y = 0;
+            if (player.position.y <= groundY && velocityY <= 0) {
+                player.position.y = groundY;
+                velocityY = 0;
+                isJumping = false;
+            }
+        } else {
+            player.position.y = groundY;
+            if (onPlatform && onPlatform.isMoving && !isJumping) {
+                // Carry player on moving platform
+                const speed = Math.cos(now * 1.5) * 1.5 * 5.0 * dt;
+                if (onPlatform.moveAxis === 'x') player.position.x += speed;
+                else player.position.z += speed;
+            }
+        }
+
+        // Death by falling
+        if (player.position.y < -15) {
+            takeDamage(25);
+            if (health > 0) {
+                player.position.set(0, 5, 0); // Respawn at center
                 velocityY = 0;
                 isJumping = false;
             }
