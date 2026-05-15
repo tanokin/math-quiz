@@ -621,7 +621,18 @@ function playAnim(animNamePrefix) {
     if (currentAction === nextAction) return;
     
     if (currentAction) currentAction.fadeOut(0.2);
-    nextAction.reset().fadeIn(0.2).play();
+
+    nextAction.reset();
+
+    // Reverse attack animation (inside to outside)
+    if (animNamePrefix === 'attack') {
+        nextAction.timeScale = -1;
+        nextAction.time = nextAction.getClip().duration;
+    } else {
+        nextAction.timeScale = 1;
+    }
+
+    nextAction.fadeIn(0.2).play();
     currentAction = nextAction;
 }
 
@@ -870,7 +881,8 @@ function animate() {
                 slashMesh.visible = true;
                 slashMesh.scale.setScalar(0.5 + progress * 0.5);
                 slashMesh.material.opacity = 1.0 - progress;
-                slashMesh.rotation.z = -Math.PI / 2 - Math.PI * progress;
+                // Reverse slash direction (inside to outside)
+                slashMesh.rotation.z = -Math.PI / 2 + Math.PI * progress;
             }
 
             if (attackTimer <= 0) {
