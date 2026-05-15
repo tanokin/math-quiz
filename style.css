@@ -303,3 +303,86 @@ body, html {
     transform: scale(0.88);
     filter: brightness(0.8);
 }
+
+/* Responsive UI for Mobile (e.g. iPhone SE2) */
+@media (max-width: 600px) {
+    .story-box {
+        max-width: 95%;
+        padding: 20px;
+    }
+    .story-box h1 {
+        font-size: 26px !important;
+    }
+    .story-box p {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    .story-images {
+        font-size: 36px;
+        margin: 10px 0;
+    }
+    .primary-btn {
+        padding: 10px 20px;
+        font-size: 18px;
+        margin-top: 15px;
+    }
+    
+    #start-screen h1 {
+        font-size: 36px !important;
+    }
+    #start-screen p {
+        font-size: 18px !important;
+    }
+
+    #quiz-ui {
+        width: 95%;
+        padding: 15px;
+        top: 25%;
+    }
+    #timer-box {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+    #question-text {
+        font-size: 20px;
+        margin: 10px 0;
+    }
+
+    #quiz-answer-buttons {
+        bottom: 5%;
+        gap: 15px;
+        max-width: 280px;
+    }
+    .quiz-answer-btn {
+        width: 100px;
+        height: 100px;
+        font-size: 36px;
+        border-width: 3px;
+    }
+
+    #player-status {
+        top: 10px;
+        left: 10px;
+        transform: scale(0.8);
+        transform-origin: top left;
+    }
+
+    #action-buttons {
+        bottom: 20px;
+        right: 20px;
+    }
+    .large-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 28px;
+    }
+    
+    #joystick-zone {
+        width: 60%;
+        height: 60%;
+    }
+    #drag-hint {
+        bottom: 20px;
+        left: 20px;
+    }
+}
