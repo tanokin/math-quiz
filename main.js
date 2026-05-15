@@ -270,14 +270,27 @@ function init() {
     // UI Events
     document.getElementById('btn-story-next').addEventListener('click', () => {
         document.getElementById('story-screen').classList.add('hidden');
-        document.getElementById('start-screen').classList.remove('hidden');
-        gameState = 'START';
+        startGame(false);
     });
 
-    document.getElementById('btn-start').addEventListener('click', startGame);
+    document.getElementById('btn-new-game').addEventListener('click', () => {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('story-screen').classList.remove('hidden');
+        startStorySequence();
+    });
+
+    document.getElementById('btn-continue').addEventListener('click', () => {
+        document.getElementById('start-screen').classList.add('hidden');
+        startGame(true);
+    });
+
+    if (localStorage.getItem('mathHeroSave')) {
+        document.getElementById('btn-continue').classList.remove('hidden');
+    }
+
     document.getElementById('btn-restart').addEventListener('click', () => {
         currentLevelIdx = 0;
-        startGame();
+        startGame(false);
     });
 
     document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); performAttack(); });
@@ -309,8 +322,17 @@ function init() {
 
     renderer.setAnimationLoop(animate);
 
-    // Start story sequence
-    startStorySequence();
+    // Initial state
+    gameState = 'START';
+}
+
+function autoSave() {
+    const saveData = {
+        level: currentLevelIdx,
+        health: health,
+        crystals: correctAnswersInLevel
+    };
+    localStorage.setItem('mathHeroSave', JSON.stringify(saveData));
 }
 
 function startStorySequence() {
@@ -337,7 +359,7 @@ function startStorySequence() {
     });
 }
 
-function loadLevel(levelIndex) {
+function loadLevel(levelIndex, isResume = false) {
     if (levelIndex >= LEVELS.length) {
         document.getElementById('game-over-title').innerText = "ゲームクリア！";
         document.getElementById('game-over-title').style.color = "#FFD700";
@@ -351,7 +373,11 @@ function loadLevel(levelIndex) {
 
     currentLevelIdx = levelIndex;
     const config = LEVELS[currentLevelIdx];
-    correctAnswersInLevel = 0;
+    if (!isResume) {
+        correctAnswersInLevel = 0;
+    }
+    
+    autoSave();
 
     document.getElementById('level-count').innerText = config.id;
     updateProgressUI();
@@ -599,19 +625,33 @@ function playAnim(animNamePrefix) {
     currentAction = nextAction;
 }
 
-function startGame() {
-    audioCtx.resume();
+function startGame(isResume = false) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('story-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('controls').classList.remove('hidden');
 
-    health = 100;
+    if (isResume) {
+        const saved = JSON.parse(localStorage.getItem('mathHeroSave'));
+        if (saved) {
+            currentLevelIdx = saved.level || 0;
+            health = saved.health || 100;
+            correctAnswersInLevel = saved.crystals || 0;
+        }
+    } else {
+        currentLevelIdx = 0;
+        health = 100;
+        correctAnswersInLevel = 0;
+        localStorage.removeItem('mathHeroSave');
+    }
+
     updateHealthUI();
     score = 0;
     
     initJoystick();
-    loadLevel(currentLevelIdx);
+    loadLevel(currentLevelIdx, isResume);
 }
 
 let joystick;
@@ -739,9 +779,10 @@ function handleAnswer(selectedAns) {
 
         if (correctAnswersInLevel >= 5) {
             setTimeout(() => {
-                loadLevel(currentLevelIdx + 1);
+                loadLevel(currentLevelIdx + 1, false);
             }, 2000);
         } else {
+            autoSave();
             setTimeout(() => {
                 gameState = 'EXPLORE';
                 document.getElementById('instruction-text').innerHTML = "クリスタルを さがしてね！";

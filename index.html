@@ -11,7 +11,7 @@
 
     <div id="ui-layer">
         <!-- Story Screen -->
-        <div id="story-screen" class="screen">
+        <div id="story-screen" class="screen hidden">
             <div class="story-box">
                 <h1 style="color: #FFD700; font-family: serif; font-size: 36px; text-shadow: 2px 2px 4px #000;"><ruby>王国<rt>おうこく</rt></ruby>からの<ruby>緊急<rt>きんきゅう</rt></ruby><ruby>依頼<rt>いらい</rt></ruby></h1>
                 <div class="story-images">
@@ -24,10 +24,13 @@
         </div>
 
         <!-- Start Screen -->
-        <div id="start-screen" class="screen hidden">
+        <div id="start-screen" class="screen">
             <h1 style="color: white; font-family: serif; font-size: 50px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">MATH HERO</h1>
             <p style="color: #ccc; font-size: 24px;">Action RPG & Quiz</p>
-            <button id="btn-start" class="primary-btn">ぼうけんへ<ruby>出発<rt>しゅっぱつ</rt></ruby>！</button>
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 30px;">
+                <button id="btn-new-game" class="primary-btn" style="margin-top: 0;">はじめから</button>
+                <button id="btn-continue" class="primary-btn hidden" style="margin-top: 0; background: linear-gradient(45deg, #27ae60, #2ecc71);">つづきから</button>
+            </div>
         </div>
 
         <div id="hud" class="hidden">
