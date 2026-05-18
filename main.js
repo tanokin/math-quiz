@@ -39,7 +39,7 @@ let correctAnswersInLevel = 0;
 const LEVELS = [
     { 
         id: 1, name: "Castle Dungeon", 
-        sky: 'assets/realistic_sky.png', floor: 'assets/realistic_stone_floor.png', wall: 'assets/realistic_castle_wall.png', 
+        sky: 'assets/r_sky.png', floor: 'assets/r_floor.png', wall: 'assets/r_wall.png', 
         monsters: 25, genMath: () => genMathTask(1), bgmParams: { r: 100, g: 100, b: 150 }
     },
     { 
@@ -49,7 +49,7 @@ const LEVELS = [
     },
     { 
         id: 3, name: "Shallow Ocean", 
-        sky: 'assets/realistic_sky.png', floor: 'assets/ocean_floor.png', wall: 'assets/ocean_wall.png', 
+        sky: 'assets/r_sky.png', floor: 'assets/ocean_floor.png', wall: 'assets/ocean_wall.png', 
         monsters: 50, genMath: () => genMathTask(3), bgmParams: { r: 50, g: 150, b: 200 }
     },
     { 
