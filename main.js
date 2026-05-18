@@ -455,6 +455,20 @@ function loadLevel(levelIndex, isResume = false) {
     document.getElementById('level-count').innerText = config.id;
     updateProgressUI();
 
+    // Clean up previous level objects
+    while(environmentGroup.children.length > 0){ 
+        environmentGroup.remove(environmentGroup.children[0]); 
+    }
+    crystals.forEach(c => scene.remove(c));
+    monsters.forEach(m => scene.remove(m.mesh));
+    crystals = [];
+    monsters = [];
+    platforms = [];
+
+    // Update environment background (Sky)
+    scene.background = getTextureWithRepeat(config.sky, 1, 1);
+    if(scene.fog) scene.fog.color.setHex(currentLevelIdx === 0 ? 0x222222 : 0x87CEEB); // Darker fog for dungeon
+
     // Platform helper
     function createPlatform(x, y, z, w, d, h, isMoving = false, moveAxis = 'x') {
         const topTex = getTextureWithRepeat(config.floor, Math.max(1, w/5), Math.max(1, d/5));
