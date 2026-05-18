@@ -492,42 +492,106 @@ function loadLevel(levelIndex, isResume = false) {
     }
 
     // Generate Platformer Level
-    // Start island
-    createPlatform(0, 0, 0, 12, 12, 2, false);
-
-    // 5 branches for 5 crystals
-    const angles = [0, Math.PI*2/5, Math.PI*4/5, Math.PI*6/5, Math.PI*8/5];
-    
     const crystalGeo = new THREE.OctahedronGeometry(0.5);
     const crystalMat = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.1 });
 
-    for (let i=0; i<5; i++) {
-        const dx = Math.sin(angles[i]);
-        const dz = Math.cos(angles[i]);
+    if (currentLevelIdx === 0) {
+        // LEVEL 1: Castle Dungeon (No jumping required, large flat dungeon with many objects)
+        // Main huge floor
+        createPlatform(0, 0, 0, 60, 60, 2, false);
+        
+        // Add many rich textured pillars/walls as obstacles
+        for (let i = 0; i < 20; i++) {
+            let px = (Math.random() - 0.5) * 50;
+            let pz = (Math.random() - 0.5) * 50;
+            // Avoid center where player spawns
+            if (Math.abs(px) < 8 && Math.abs(pz) < 8) continue;
+            // Create rich textured pillars (using the createPlatform helper applies the rule-enforced textures!)
+            createPlatform(px, 3, pz, 4 + Math.random()*2, 4 + Math.random()*2, 4 + Math.random() * 4, false);
+        }
 
-        // Path segment 1: Static stepping stones (climbing up)
-        createPlatform(dx * 10, 1, dz * 10, 4, 4, 2, false);
-        createPlatform(dx * 16, 2, dz * 16, 4, 4, 4, false);
+        // Spawn 10 Crystals around the dungeon
+        for (let i = 0; i < 10; i++) {
+            const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+            let cx = (Math.random() - 0.5) * 50;
+            let cz = (Math.random() - 0.5) * 50;
+            crystal.position.set(cx, 1.0, cz); // 1.0 above surface (surface is 0)
+            crystal.baseY = crystal.position.y;
+            crystal.castShadow = true;
+            scene.add(crystal);
+            crystals.push(crystal);
+        }
 
-        // Path segment 2: Moving platform gap
-        createPlatform(dx * 25, 2, dz * 25, 4, 4, 1, true, (i%2===0)?'x':'z');
+        // Spawn 15 Monsters around the dungeon
+        for (let i = 0; i < 15; i++) {
+            let mx = (Math.random() - 0.5) * 50;
+            let mz = (Math.random() - 0.5) * 50;
+            if (Math.abs(mx) < 5 && Math.abs(mz) < 5) continue; // away from center
+            spawnMonster(mx, mz, 0);
+        }
 
-        // Path segment 3: Final island
-        let fx = dx * 36;
-        let fz = dz * 36;
-        createPlatform(fx, 2, fz, 10, 10, 2, false);
+    } else {
+        // LEVEL 2-4: Islands with increasing jumps and moving platforms
+        // Start island
+        createPlatform(0, 0, 0, 16, 16, 4, false);
 
-        // Place crystal on the final island
-        const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-        crystal.position.set(fx, 2 + 1.0, fz); // 1.0 above surface
-        crystal.baseY = crystal.position.y;
-        crystal.castShadow = true;
-        scene.add(crystal);
-        crystals.push(crystal);
+        const angles = [0, Math.PI*2/5, Math.PI*4/5, Math.PI*6/5, Math.PI*8/5];
+        for (let i = 0; i < 5; i++) {
+            const dx = Math.sin(angles[i]);
+            const dz = Math.cos(angles[i]);
 
-        // Spawn monsters on the final island
-        spawnMonster(fx + 2, fz + 2, 2);
-        if (config.monsters > 15) spawnMonster(fx - 2, fz - 2, 2); // extra monsters for harder levels
+            let finalIslandY = 0;
+            let finalIslandDist = 0;
+
+            if (currentLevelIdx === 1) {
+                // LEVEL 2: Desert Ruins (Small jumps, NO moving platforms)
+                createPlatform(dx * 12, 1, dz * 12, 6, 6, 4, false);
+                createPlatform(dx * 22, 2, dz * 22, 6, 6, 4, false);
+                createPlatform(dx * 34, 3, dz * 34, 12, 12, 4, false);
+                finalIslandDist = 34;
+                finalIslandY = 3;
+            } else if (currentLevelIdx === 2) {
+                // LEVEL 3: Ocean (Moderate jumps, moving platforms)
+                createPlatform(dx * 14, 1, dz * 14, 5, 5, 4, true, (i%2===0)?'x':'z');
+                createPlatform(dx * 26, 2, dz * 26, 6, 6, 4, false);
+                createPlatform(dx * 40, 2, dz * 40, 12, 12, 4, false);
+                finalIslandDist = 40;
+                finalIslandY = 2;
+                spawnMonster(dx * 26, dz * 26, 2); // Monster on middle island
+            } else {
+                // LEVEL 4: Forest (Harder jumps, verticality, moving platforms)
+                createPlatform(dx * 12, 1, dz * 12, 4, 4, 4, false);
+                createPlatform(dx * 24, 3, dz * 24, 4, 4, 4, true, (i%2===0)?'x':'z');
+                createPlatform(dx * 38, 5, dz * 38, 12, 12, 4, false);
+                finalIslandDist = 38;
+                finalIslandY = 5;
+                spawnMonster(dx * 12, dz * 12, 1); // Monster on first step
+            }
+
+            // Crystals & Monsters on the final island of each branch
+            let fx = dx * finalIslandDist;
+            let fz = dz * finalIslandDist;
+            
+            // 2 Crystals per branch (Total 10)
+            const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+            crystal.position.set(fx, finalIslandY + 1.0, fz);
+            crystal.baseY = crystal.position.y;
+            crystal.castShadow = true;
+            scene.add(crystal);
+            crystals.push(crystal);
+            
+            const crystal2 = new THREE.Mesh(crystalGeo, crystalMat);
+            crystal2.position.set(fx + 3, finalIslandY + 1.0, fz - 3);
+            crystal2.baseY = crystal2.position.y;
+            crystal2.castShadow = true;
+            scene.add(crystal2);
+            crystals.push(crystal2);
+            
+            // 2-3 Monsters per final island
+            spawnMonster(fx + 2, fz + 2, finalIslandY);
+            spawnMonster(fx - 2, fz - 2, finalIslandY);
+            if (config.monsters > 40) spawnMonster(fx + 3, fz - 2, finalIslandY);
+        }
     }
 
 
