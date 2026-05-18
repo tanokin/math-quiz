@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+/* 
+=============================================================================
+【BASIC RULE / 基本ルール】
+床や障害物などを作成する際は、絶対に単色（colorだけのマテリアル）を使わず、
+必ずテクスチャー（画像マテリアル）などを適用してリッチな3Dの印象にすること！
+(Rule: Always use textures/materials for floors and obstacles to maintain a rich 3D look. Do not use plain colors.)
+=============================================================================
+*/
 let scene, camera, renderer;
 let player, followCamGroup, swordGroup;
 let clock = new THREE.Clock();
