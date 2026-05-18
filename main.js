@@ -513,6 +513,12 @@ function loadLevel(levelIndex, isResume = false) {
         // Main huge floor
         createPlatform(0, 0, 0, 60, 60, 2, false);
         
+        // Perimeter walls to prevent falling off the edge of the dungeon
+        createPlatform(0, 3, -30, 60, 2, 6, false); // North wall
+        createPlatform(0, 3, 30, 60, 2, 6, false);  // South wall
+        createPlatform(-30, 3, 0, 2, 60, 6, false); // West wall
+        createPlatform(30, 3, 0, 2, 60, 6, false);  // East wall
+        
         // Add many rich textured pillars/walls as obstacles
         for (let i = 0; i < 20; i++) {
             let px = (Math.random() - 0.5) * 50;
@@ -526,8 +532,8 @@ function loadLevel(levelIndex, isResume = false) {
         // Spawn 10 Crystals around the dungeon
         for (let i = 0; i < 10; i++) {
             const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-            let cx = (Math.random() - 0.5) * 50;
-            let cz = (Math.random() - 0.5) * 50;
+            let cx = (Math.random() - 0.5) * 46; // keep away from walls
+            let cz = (Math.random() - 0.5) * 46;
             crystal.position.set(cx, 1.0, cz); // 1.0 above surface (surface is 0)
             crystal.baseY = crystal.position.y;
             crystal.castShadow = true;
@@ -537,8 +543,8 @@ function loadLevel(levelIndex, isResume = false) {
 
         // Spawn 15 Monsters around the dungeon
         for (let i = 0; i < 15; i++) {
-            let mx = (Math.random() - 0.5) * 50;
-            let mz = (Math.random() - 0.5) * 50;
+            let mx = (Math.random() - 0.5) * 46;
+            let mz = (Math.random() - 0.5) * 46;
             if (Math.abs(mx) < 5 && Math.abs(mz) < 5) continue; // away from center
             spawnMonster(mx, mz, 0);
         }
@@ -584,6 +590,9 @@ function loadLevel(levelIndex, isResume = false) {
             // Crystals & Monsters on the final island of each branch
             let fx = dx * finalIslandDist;
             let fz = dz * finalIslandDist;
+            
+            // Backdrop wall to prevent falling off the very end of the dungeon
+            createPlatform(fx + dx * 8, finalIslandY + 3, fz + dz * 8, 14, 14, 10, false);
             
             // 2 Crystals per branch (Total 10)
             const crystal = new THREE.Mesh(crystalGeo, crystalMat);
