@@ -95,12 +95,11 @@ function loadTexture(path, repeat = null) {
 }
 
 function getTextureWithRepeat(path, repeatU, repeatV) {
-    const baseTex = loadTexture(path);
-    const tex = baseTex.clone();
+    const tex = textureLoader.load(path);
+    tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(repeatU, repeatV);
-    tex.needsUpdate = true;
     return tex;
 }
 
