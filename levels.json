@@ -1,0 +1,108 @@
+{
+  "levels": [
+    {
+      "id": 1,
+      "name": "Castle Dungeon",
+      "textures": {
+        "floor": "assets/r_floor.png",
+        "wall":  "assets/r_wall.png"
+      },
+      "bgColor": { "r": 100, "g": 100, "b": 150 },
+      "mathLevel": 1,
+      "crystalsToAdvance": 5,
+      "playerStart": { "x": 0, "y": 2, "z": 0 },
+      "layout": {
+        "type": "flat",
+        "floorSize": 60,
+        "walls": true,
+        "obstacles": {
+          "count": 20,
+          "y": 3,
+          "clearCenter": 8,
+          "wRange": [4, 6],
+          "dRange": [4, 6],
+          "hRange": [4, 8]
+        }
+      },
+      "crystals": {
+        "count": 10,
+        "spread": 46,
+        "y": 1.0
+      },
+      "monsters": {
+        "count": 15,
+        "spread": 46,
+        "clearCenter": 5
+      }
+    },
+    {
+      "id": 2,
+      "name": "Desert Ruins",
+      "textures": {
+        "floor": "assets/desert_floor.png",
+        "wall":  "assets/desert_wall.png"
+      },
+      "bgColor": { "r": 200, "g": 180, "b": 100 },
+      "mathLevel": 2,
+      "crystalsToAdvance": 5,
+      "playerStart": { "x": 0, "y": 2, "z": 0 },
+      "layout": {
+        "type": "branches",
+        "centerIsland": { "w": 16, "d": 16, "h": 4 },
+        "branchCount": 5,
+        "backdropOffset": 8,
+        "steps": [
+          { "dist": 12, "y": 1, "w": 6,  "d": 6,  "h": 4, "moving": false, "monsters": 0, "crystals": 0 },
+          { "dist": 22, "y": 2, "w": 6,  "d": 6,  "h": 4, "moving": false, "monsters": 0, "crystals": 0 },
+          { "dist": 34, "y": 3, "w": 12, "d": 12, "h": 4, "moving": false, "monsters": 2, "crystals": 2 }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "name": "Shallow Ocean",
+      "textures": {
+        "floor": "assets/ocean_floor.png",
+        "wall":  "assets/ocean_wall.png"
+      },
+      "bgColor": { "r": 50, "g": 150, "b": 200 },
+      "mathLevel": 3,
+      "crystalsToAdvance": 5,
+      "playerStart": { "x": 0, "y": 2, "z": 0 },
+      "layout": {
+        "type": "branches",
+        "centerIsland": { "w": 16, "d": 16, "h": 4 },
+        "branchCount": 5,
+        "backdropOffset": 8,
+        "steps": [
+          { "dist": 14, "y": 1, "w": 5,  "d": 5,  "h": 4, "moving": true,  "monsters": 0, "crystals": 0 },
+          { "dist": 26, "y": 2, "w": 6,  "d": 6,  "h": 4, "moving": false, "monsters": 1, "crystals": 0 },
+          { "dist": 40, "y": 2, "w": 12, "d": 12, "h": 4, "moving": false, "monsters": 3, "crystals": 2 }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "name": "Deep Forest",
+      "textures": {
+        "floor": "assets/forest_floor.png",
+        "wall":  "assets/forest_wall.png"
+      },
+      "bgColor": { "r": 50, "g": 180, "b": 80 },
+      "mathLevel": 4,
+      "crystalsToAdvance": 5,
+      "playerStart": { "x": 0, "y": 2, "z": 0 },
+      "layout": {
+        "type": "branches",
+        "centerIsland": { "w": 16, "d": 16, "h": 4 },
+        "branchCount": 5,
+        "backdropOffset": 8,
+        "steps": [
+          { "dist": 12, "y": 1, "w": 4,  "d": 4,  "h": 4, "moving": false, "monsters": 1, "crystals": 0 },
+          { "dist": 24, "y": 3, "w": 4,  "d": 4,  "h": 4, "moving": true,  "monsters": 0, "crystals": 0 },
+          { "dist": 38, "y": 5, "w": 12, "d": 12, "h": 4, "moving": false, "monsters": 3, "crystals": 2 }
+        ]
+      }
+    }
+  ]
+}

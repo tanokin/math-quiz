@@ -33,31 +33,14 @@ let velocityY = 0;
 const GRAVITY = 25;
 const JUMP_POWER = 10;
 
-// Levels Config
+// Levels Config (loaded from levels.json)
 let currentLevelIdx = 0;
 let correctAnswersInLevel = 0;
-const LEVELS = [
-    { 
-        id: 1, name: "Castle Dungeon", 
-        sky: 'assets/r_sky.png', floor: 'assets/r_floor.png', wall: 'assets/r_wall.png', 
-        monsters: 25, genMath: () => genMathTask(1), bgmParams: { r: 100, g: 100, b: 150 }
-    },
-    { 
-        id: 2, name: "Desert Ruins", 
-        sky: 'assets/desert_sky.png', floor: 'assets/desert_floor.png', wall: 'assets/desert_wall.png', 
-        monsters: 35, genMath: () => genMathTask(2), bgmParams: { r: 200, g: 180, b: 100 }
-    },
-    { 
-        id: 3, name: "Shallow Ocean", 
-        sky: 'assets/r_sky.png', floor: 'assets/ocean_floor.png', wall: 'assets/ocean_wall.png', 
-        monsters: 50, genMath: () => genMathTask(3), bgmParams: { r: 50, g: 150, b: 200 }
-    },
-    { 
-        id: 4, name: "Deep Forest", 
-        sky: 'assets/forest_sky.png', floor: 'assets/forest_floor.png', wall: 'assets/forest_wall.png', 
-        monsters: 70, genMath: () => genMathTask(4), bgmParams: { r: 50, g: 180, b: 80 }
-    }
-];
+let LEVELS = [];
+
+// Crystal geometry/material shared across all spawns
+const CRYSTAL_GEO = new THREE.OctahedronGeometry(0.5);
+const CRYSTAL_MAT = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.1 });
 
 // Environments & Entities
 let environmentGroup = new THREE.Group();
@@ -291,7 +274,20 @@ function genMathTask(levelId) {
 
 init();
 
-function init() {
+async function loadLevelsConfig() {
+    try {
+        const res = await fetch('levels.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        LEVELS = data.levels;
+    } catch (e) {
+        console.error('levels.json の読み込みに失敗しました:', e);
+        alert('levels.json の読み込みに失敗しました。\nサーバーから起動してください（file:// は不可）。');
+    }
+}
+
+async function init() {
+    await loadLevelsConfig();
     const container = document.getElementById('game-container');
 
     scene = new THREE.Scene();
@@ -432,6 +428,123 @@ function startStorySequence() {
     });
 }
 
+// -------------------------------------------------------
+// Level builder helpers (data-driven from levels.json)
+// -------------------------------------------------------
+
+function spawnCrystal(x, y, z) {
+    const crystal = new THREE.Mesh(CRYSTAL_GEO, CRYSTAL_MAT);
+    crystal.position.set(x, y, z);
+    crystal.baseY = y;
+    crystal.castShadow = true;
+    scene.add(crystal);
+    crystals.push(crystal);
+}
+
+function buildLevel(config, createPlatform) {
+    const layout = config.layout;
+    if (layout.type === 'flat') {
+        buildFlatLayout(config, layout, createPlatform);
+    } else if (layout.type === 'branches') {
+        buildBranchLayout(layout, createPlatform);
+    }
+}
+
+function buildFlatLayout(config, layout, createPlatform) {
+    const half = layout.floorSize / 2;
+
+    // メインフロア
+    createPlatform(0, 0, 0, layout.floorSize, layout.floorSize, 2, false);
+
+    // 外周壁
+    if (layout.walls) {
+        createPlatform(0,    3, -half, layout.floorSize, 2, 6, false); // 北
+        createPlatform(0,    3,  half, layout.floorSize, 2, 6, false); // 南
+        createPlatform(-half, 3, 0, 2, layout.floorSize, 6, false);   // 西
+        createPlatform( half, 3, 0, 2, layout.floorSize, 6, false);   // 東
+    }
+
+    // ランダム障害物（柱・壁）
+    if (layout.obstacles) {
+        const obs = layout.obstacles;
+        for (let i = 0; i < obs.count; i++) {
+            const px = (Math.random() - 0.5) * (layout.floorSize - 10);
+            const pz = (Math.random() - 0.5) * (layout.floorSize - 10);
+            if (Math.abs(px) < obs.clearCenter && Math.abs(pz) < obs.clearCenter) continue;
+            const w = obs.wRange[0] + Math.random() * (obs.wRange[1] - obs.wRange[0]);
+            const d = obs.dRange[0] + Math.random() * (obs.dRange[1] - obs.dRange[0]);
+            const h = obs.hRange[0] + Math.random() * (obs.hRange[1] - obs.hRange[0]);
+            createPlatform(px, obs.y, pz, w, d, h, false);
+        }
+    }
+
+    // クリスタル
+    const crystalCfg = config.crystals;
+    const spread = crystalCfg.spread || 46;
+    for (let i = 0; i < crystalCfg.count; i++) {
+        const cx = (Math.random() - 0.5) * spread;
+        const cz = (Math.random() - 0.5) * spread;
+        spawnCrystal(cx, crystalCfg.y || 1.0, cz);
+    }
+
+    // モンスター
+    const monCfg = config.monsters;
+    const monSpread = monCfg.spread || 46;
+    for (let i = 0; i < monCfg.count; i++) {
+        const mx = (Math.random() - 0.5) * monSpread;
+        const mz = (Math.random() - 0.5) * monSpread;
+        if (Math.abs(mx) < (monCfg.clearCenter || 5) && Math.abs(mz) < (monCfg.clearCenter || 5)) continue;
+        spawnMonster(mx, mz, 0);
+    }
+}
+
+function buildBranchLayout(layout, createPlatform) {
+    const ci = layout.centerIsland;
+    createPlatform(0, 0, 0, ci.w, ci.d, ci.h, false);
+
+    const branchCount = layout.branchCount || 5;
+    const monsterOffsets = [[2, 2], [-2, -2], [3, -2], [-3, 2], [0, 3]];
+
+    for (let i = 0; i < branchCount; i++) {
+        const angle = (Math.PI * 2 / branchCount) * i;
+        const dx = Math.sin(angle);
+        const dz = Math.cos(angle);
+
+        layout.steps.forEach((step) => {
+            const moving = step.moving || false;
+            const axis = moving ? ((i % 2 === 0) ? 'x' : 'z') : 'x';
+            createPlatform(dx * step.dist, step.y, dz * step.dist, step.w, step.d, step.h, moving, axis);
+
+            const fx = dx * step.dist;
+            const fz = dz * step.dist;
+
+            // このステップ上のクリスタル
+            const crystalOffsets = [[0, 0], [3, -3], [-3, 3], [3, 3]];
+            for (let c = 0; c < (step.crystals || 0); c++) {
+                const [ox, oz] = crystalOffsets[c] || [0, 0];
+                spawnCrystal(fx + ox, step.y + 1.0, fz + oz);
+            }
+
+            // このステップ上のモンスター
+            for (let m = 0; m < (step.monsters || 0); m++) {
+                const [ox, oz] = monsterOffsets[m] || [0, 0];
+                spawnMonster(fx + ox, fz + oz, step.y);
+            }
+        });
+
+        // バックドロップ壁（最終ステップの後ろ）
+        if (layout.backdropOffset) {
+            const last = layout.steps[layout.steps.length - 1];
+            createPlatform(
+                dx * (last.dist + layout.backdropOffset),
+                last.y + 3,
+                dz * (last.dist + layout.backdropOffset),
+                14, 14, 10, false
+            );
+        }
+    }
+}
+
 function loadLevel(levelIndex, isResume = false) {
     if (levelIndex >= LEVELS.length) {
         document.getElementById('game-over-title').innerText = "ゲームクリア！";
@@ -466,9 +579,9 @@ function loadLevel(levelIndex, isResume = false) {
     platforms = [];
 
     // 空はテクスチャの映り込みを防ぐため単色で設定する
-    const bgR = config.bgmParams.r / 255;
-    const bgG = config.bgmParams.g / 255;
-    const bgB = config.bgmParams.b / 255;
+    const bgR = config.bgColor.r / 255;
+    const bgG = config.bgColor.g / 255;
+    const bgB = config.bgColor.b / 255;
     scene.background = new THREE.Color(bgR, bgG, bgB);
     scene.environment = null; // PBR材質への反射を無効化
     if (scene.fog) scene.fog.color.setRGB(bgR, bgG, bgB);
@@ -508,122 +621,12 @@ function loadLevel(levelIndex, isResume = false) {
         return plat;
     }
 
-    // Generate Platformer Level
-    const crystalGeo = new THREE.OctahedronGeometry(0.5);
-    const crystalMat = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.1 });
+    // levels.json の設定からレベルを構築
+    buildLevel(config, createPlatform);
 
-    if (currentLevelIdx === 0) {
-        // LEVEL 1: Castle Dungeon (No jumping required, large flat dungeon with many objects)
-        // Main huge floor
-        createPlatform(0, 0, 0, 60, 60, 2, false);
-        
-        // Perimeter walls to prevent falling off the edge of the dungeon
-        createPlatform(0, 3, -30, 60, 2, 6, false); // North wall
-        createPlatform(0, 3, 30, 60, 2, 6, false);  // South wall
-        createPlatform(-30, 3, 0, 2, 60, 6, false); // West wall
-        createPlatform(30, 3, 0, 2, 60, 6, false);  // East wall
-        
-        // Add many rich textured pillars/walls as obstacles
-        for (let i = 0; i < 20; i++) {
-            let px = (Math.random() - 0.5) * 50;
-            let pz = (Math.random() - 0.5) * 50;
-            // Avoid center where player spawns
-            if (Math.abs(px) < 8 && Math.abs(pz) < 8) continue;
-            // Create rich textured pillars (using the createPlatform helper applies the rule-enforced textures!)
-            createPlatform(px, 3, pz, 4 + Math.random()*2, 4 + Math.random()*2, 4 + Math.random() * 4, false);
-        }
-
-        // Spawn 10 Crystals around the dungeon
-        for (let i = 0; i < 10; i++) {
-            const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-            let cx = (Math.random() - 0.5) * 46; // keep away from walls
-            let cz = (Math.random() - 0.5) * 46;
-            crystal.position.set(cx, 1.0, cz); // 1.0 above surface (surface is 0)
-            crystal.baseY = crystal.position.y;
-            crystal.castShadow = true;
-            scene.add(crystal);
-            crystals.push(crystal);
-        }
-
-        // Spawn 15 Monsters around the dungeon
-        for (let i = 0; i < 15; i++) {
-            let mx = (Math.random() - 0.5) * 46;
-            let mz = (Math.random() - 0.5) * 46;
-            if (Math.abs(mx) < 5 && Math.abs(mz) < 5) continue; // away from center
-            spawnMonster(mx, mz, 0);
-        }
-
-    } else {
-        // LEVEL 2-4: Islands with increasing jumps and moving platforms
-        // Start island
-        createPlatform(0, 0, 0, 16, 16, 4, false);
-
-        const angles = [0, Math.PI*2/5, Math.PI*4/5, Math.PI*6/5, Math.PI*8/5];
-        for (let i = 0; i < 5; i++) {
-            const dx = Math.sin(angles[i]);
-            const dz = Math.cos(angles[i]);
-
-            let finalIslandY = 0;
-            let finalIslandDist = 0;
-
-            if (currentLevelIdx === 1) {
-                // LEVEL 2: Desert Ruins (Small jumps, NO moving platforms)
-                createPlatform(dx * 12, 1, dz * 12, 6, 6, 4, false);
-                createPlatform(dx * 22, 2, dz * 22, 6, 6, 4, false);
-                createPlatform(dx * 34, 3, dz * 34, 12, 12, 4, false);
-                finalIslandDist = 34;
-                finalIslandY = 3;
-            } else if (currentLevelIdx === 2) {
-                // LEVEL 3: Ocean (Moderate jumps, moving platforms)
-                createPlatform(dx * 14, 1, dz * 14, 5, 5, 4, true, (i%2===0)?'x':'z');
-                createPlatform(dx * 26, 2, dz * 26, 6, 6, 4, false);
-                createPlatform(dx * 40, 2, dz * 40, 12, 12, 4, false);
-                finalIslandDist = 40;
-                finalIslandY = 2;
-                spawnMonster(dx * 26, dz * 26, 2); // Monster on middle island
-            } else {
-                // LEVEL 4: Forest (Harder jumps, verticality, moving platforms)
-                createPlatform(dx * 12, 1, dz * 12, 4, 4, 4, false);
-                createPlatform(dx * 24, 3, dz * 24, 4, 4, 4, true, (i%2===0)?'x':'z');
-                createPlatform(dx * 38, 5, dz * 38, 12, 12, 4, false);
-                finalIslandDist = 38;
-                finalIslandY = 5;
-                spawnMonster(dx * 12, dz * 12, 1); // Monster on first step
-            }
-
-            // Crystals & Monsters on the final island of each branch
-            let fx = dx * finalIslandDist;
-            let fz = dz * finalIslandDist;
-            
-            // Backdrop wall to prevent falling off the very end of the dungeon
-            createPlatform(fx + dx * 8, finalIslandY + 3, fz + dz * 8, 14, 14, 10, false);
-            
-            // 2 Crystals per branch (Total 10)
-            const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-            crystal.position.set(fx, finalIslandY + 1.0, fz);
-            crystal.baseY = crystal.position.y;
-            crystal.castShadow = true;
-            scene.add(crystal);
-            crystals.push(crystal);
-            
-            const crystal2 = new THREE.Mesh(crystalGeo, crystalMat);
-            crystal2.position.set(fx + 3, finalIslandY + 1.0, fz - 3);
-            crystal2.baseY = crystal2.position.y;
-            crystal2.castShadow = true;
-            scene.add(crystal2);
-            crystals.push(crystal2);
-            
-            // 2-3 Monsters per final island
-            spawnMonster(fx + 2, fz + 2, finalIslandY);
-            spawnMonster(fx - 2, fz - 2, finalIslandY);
-            if (config.monsters > 40) spawnMonster(fx + 3, fz - 2, finalIslandY);
-        }
-    }
-
-
-
-    player.position.set(0, 2, 0); 
-    player.rotation.set(0, Math.PI, 0); 
+    const ps = config.playerStart || { x: 0, y: 2, z: 0 };
+    player.position.set(ps.x, ps.y, ps.z);
+    player.rotation.set(0, Math.PI, 0);
     gameState = 'EXPLORE';
 }
 
@@ -874,6 +877,8 @@ function updateHealthUI() {
 
 function updateProgressUI() {
     document.getElementById('progress-count').innerText = correctAnswersInLevel;
+    const needed = LEVELS[currentLevelIdx] ? LEVELS[currentLevelIdx].crystalsToAdvance : 5;
+    document.getElementById('crystals-needed').innerText = needed;
 }
 
 function takeDamage(amt) {
@@ -902,7 +907,7 @@ function triggerQuiz() {
     document.getElementById('instruction-text').innerHTML = "ただしい こたえを えらんでね！";
     
     const config = LEVELS[currentLevelIdx];
-    currentQuestion = config.genMath();
+    currentQuestion = genMathTask(config.mathLevel);
     
     answerButtons.classList.add('hidden'); // Hide buttons while typing
     
@@ -957,7 +962,8 @@ function handleAnswer(selectedAns) {
         document.getElementById('quiz-answer-buttons').classList.add('hidden');
         document.getElementById('instruction-text').innerHTML = "大せいかい！";
 
-        if (correctAnswersInLevel >= 5) {
+        const needed = LEVELS[currentLevelIdx].crystalsToAdvance || 5;
+        if (correctAnswersInLevel >= needed) {
             setTimeout(() => {
                 loadLevel(currentLevelIdx + 1, false);
             }, 2000);
