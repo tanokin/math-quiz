@@ -465,9 +465,13 @@ function loadLevel(levelIndex, isResume = false) {
     monsters = [];
     platforms = [];
 
-    // Update environment background (Sky)
-    scene.background = getTextureWithRepeat(config.sky, 1, 1);
-    if(scene.fog) scene.fog.color.setHex(currentLevelIdx === 0 ? 0x222222 : 0x87CEEB); // Darker fog for dungeon
+    // 空はテクスチャの映り込みを防ぐため単色で設定する
+    const bgR = config.bgmParams.r / 255;
+    const bgG = config.bgmParams.g / 255;
+    const bgB = config.bgmParams.b / 255;
+    scene.background = new THREE.Color(bgR, bgG, bgB);
+    scene.environment = null; // PBR材質への反射を無効化
+    if (scene.fog) scene.fog.color.setRGB(bgR, bgG, bgB);
 
     // Platform helper
     function createPlatform(x, y, z, w, d, h, isMoving = false, moveAxis = 'x') {
