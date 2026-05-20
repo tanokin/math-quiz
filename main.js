@@ -309,6 +309,20 @@ async function speakVoicevox(text, speakerId = 3, speed = 1.0) {
     }
 }
 
+function unlockAudio() {
+    if ('speechSynthesis' in window) {
+        // 空のダミー発話を実行して iOS/Safari の音声ロックを確実に解除する
+        const dummy = new SpeechSynthesisUtterance('');
+        dummy.volume = 0;
+        window.speechSynthesis.speak(dummy);
+        // 現在ロードされている音声を再ロードさせてリストを更新
+        window.speechSynthesis.getVoices();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
 function speakWebSpeech(text, category, rate = 1.0, pitch = 1.2, volume = 1.0) {
     if (!('speechSynthesis' in window)) return;
     const ut = new SpeechSynthesisUtterance(text);
@@ -321,6 +335,26 @@ function speakWebSpeech(text, category, rate = 1.0, pitch = 1.2, volume = 1.0) {
     ut.rate = rate;
     ut.pitch = pitch;
     ut.volume = volume;
+    
+    // エラーハンドラーの追加（特定のSiri音声などがダウンロードされておらず再生エラーになる場合の標準Kyokoへのフォールバック）
+    ut.onerror = (event) => {
+        console.warn(`[WebSpeech] Error playing voice "${voice ? voice.name : 'default'}", falling back to standard voice.`, event);
+        if (event.error !== 'interrupted') { // 意図的な中断以外のエラーの場合
+            const fallbackUt = new SpeechSynthesisUtterance(text);
+            fallbackUt.lang = 'ja-JP';
+            fallbackUt.rate = rate;
+            fallbackUt.pitch = pitch;
+            fallbackUt.volume = volume;
+            
+            const voices = window.speechSynthesis.getVoices();
+            const standardVoice = voices.find(v => v.lang.toLowerCase().includes('ja') && !v.name.toLowerCase().includes('siri'));
+            if (standardVoice) {
+                fallbackUt.voice = standardVoice;
+            }
+            window.speechSynthesis.speak(fallbackUt);
+        }
+    };
+    
     window.speechSynthesis.speak(ut);
 }
 
@@ -601,17 +635,20 @@ async function init() {
     
     // UI Events
     document.getElementById('btn-story-next').addEventListener('click', () => {
+        unlockAudio();
         document.getElementById('story-screen').classList.add('hidden');
         startGame(false);
     });
 
     document.getElementById('btn-new-game').addEventListener('click', () => {
+        unlockAudio();
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('story-screen').classList.remove('hidden');
         startStorySequence();
     });
 
     document.getElementById('btn-continue').addEventListener('click', () => {
+        unlockAudio();
         document.getElementById('start-screen').classList.add('hidden');
         startGame(true);
     });
@@ -621,20 +658,22 @@ async function init() {
     }
 
     document.getElementById('btn-restart').addEventListener('click', () => {
+        unlockAudio();
         currentLevelIdx = 0;
         startGame(false);
     });
 
-    document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); performAttack(); });
-    document.getElementById('btn-attack').addEventListener('mousedown', (e) => { e.preventDefault(); performAttack(); });
+    document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); unlockAudio(); performAttack(); });
+    document.getElementById('btn-attack').addEventListener('mousedown', (e) => { e.preventDefault(); unlockAudio(); performAttack(); });
     
-    document.getElementById('btn-jump').addEventListener('touchstart', (e) => { e.preventDefault(); performJump(); });
-    document.getElementById('btn-jump').addEventListener('mousedown', (e) => { e.preventDefault(); performJump(); });
+    document.getElementById('btn-jump').addEventListener('touchstart', (e) => { e.preventDefault(); unlockAudio(); performJump(); });
+    document.getElementById('btn-jump').addEventListener('mousedown', (e) => { e.preventDefault(); unlockAudio(); performJump(); });
 
     // Setup multiple choice answer buttons
     const answerBtns = document.querySelectorAll('.quiz-answer-btn');
     answerBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
+            unlockAudio();
             handleAnswer(parseInt(e.target.innerText));
         });
     });
@@ -687,11 +726,13 @@ function startStorySequence() {
         if(audioCtx.state === 'suspended') audioCtx.resume();
     }, { once: true });
 
+    // ユーザーがクリックした同期タイミングで直接 speak() を呼び出し、iOSの音声合成ロックをバイパスする
+    speak(text1, 'story');
+
     typeText(p1, text1, 80, () => {
-        speak(text1, 'story');
         setTimeout(() => {
+            speak(text2, 'story');
             typeText(p2, text2, 80, () => {
-                speak(text2, 'story');
                 btn.classList.remove('hidden');
             });
         }, 1500);
