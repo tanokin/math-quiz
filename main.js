@@ -1,12 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/* 
+/*
 =============================================================================
 【BASIC RULE / 基本ルール】
-床や障害物などを作成する際は、絶対に単色（colorだけのマテリアル）を使わず、
-必ずテクスチャー（画像マテリアル）などを適用してリッチな3Dの印象にすること！
-(Rule: Always use textures/materials for floors and obstacles to maintain a rich 3D look. Do not use plain colors.)
+
+① テクスチャは必ず使うこと
+   床や障害物などを作成する際は、絶対に単色（color だけのマテリアル）を使わず、
+   必ずテクスチャー（画像マテリアル）を適用してリッチな 3D の印象にすること。
+
+② テクスチャが真っ暗になるのを防ぐルール
+   - テクスチャのロードは常に cachedTextures[] でキャッシュし、同じパスを
+     2 回以上 textureLoader.load() で読み込まないこと。
+   - 繰り返し(repeat)の設定だけ変えたいときは .clone() + needsUpdate=true を使う。
+   - ロードした全テクスチャに必ず colorSpace = THREE.SRGBColorSpace を設定すること。
+   - 上記を守らないと「同じ画像の多重リクエスト→未ロード状態で描画→真っ暗」が発生する。
+   - GLTF モデルのテクスチャは flipY = false も必須。
+
 =============================================================================
 */
 let scene, camera, renderer;
@@ -78,11 +88,18 @@ function loadTexture(path, repeat = null) {
 }
 
 function getTextureWithRepeat(path, repeatU, repeatV) {
-    const tex = textureLoader.load(path);
-    tex.colorSpace = THREE.SRGBColorSpace;
+    // ベース画像はキャッシュして1回だけロード。clone()で繰り返し設定だけ変える。
+    // これをしないと同じ画像ファイルを何十回もリクエストし、未ロード状態で描画されて真っ暗になる。
+    if (!cachedTextures[path]) {
+        const base = textureLoader.load(path);
+        base.colorSpace = THREE.SRGBColorSpace;
+        cachedTextures[path] = base;
+    }
+    const tex = cachedTextures[path].clone();
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(repeatU, repeatV);
+    tex.needsUpdate = true;
     return tex;
 }
 
@@ -272,6 +289,28 @@ function genMathTask(levelId) {
     };
 }
 
+function preloadTexture(path) {
+    return new Promise((resolve) => {
+        if (cachedTextures[path]) {
+            resolve(cachedTextures[path]);
+            return;
+        }
+        textureLoader.load(
+            path,
+            (tex) => {
+                tex.colorSpace = THREE.SRGBColorSpace;
+                cachedTextures[path] = tex;
+                resolve(tex);
+            },
+            undefined,
+            (err) => {
+                console.error(`テクスチャのプレロードに失敗しました: ${path}`, err);
+                resolve(null);
+            }
+        );
+    });
+}
+
 init();
 
 async function loadLevelsConfig() {
@@ -288,6 +327,22 @@ async function loadLevelsConfig() {
 
 async function init() {
     await loadLevelsConfig();
+
+    // 全レベル・プレイヤーのテクスチャを集計して一括プレロード
+    const texturesToPreload = [
+        'assets/Warrior_Texture.png',
+        'assets/Warrior_Sword_Texture.png'
+    ];
+    LEVELS.forEach(lvl => {
+        if (lvl.textures) {
+            if (lvl.textures.floor) texturesToPreload.push(lvl.textures.floor);
+            if (lvl.textures.wall) texturesToPreload.push(lvl.textures.wall);
+        }
+    });
+
+    const uniqueTextures = [...new Set(texturesToPreload)];
+    await Promise.all(uniqueTextures.map(preloadTexture));
+
     const container = document.getElementById('game-container');
 
     scene = new THREE.Scene();
@@ -741,14 +796,11 @@ function createPlayer() {
         playerModel.scale.set(0.6, 0.6, 0.6);
         playerModel.rotation.y = Math.PI; // Fix for backwards-facing characters
         
-        const texLoader = new THREE.TextureLoader();
-        const bodyTex = texLoader.load('assets/Warrior_Texture.png');
+        const bodyTex = loadTexture('assets/Warrior_Texture.png');
         bodyTex.flipY = false; // Essential for GLTF UVs
-        bodyTex.colorSpace = THREE.SRGBColorSpace;
         
-        const swordTex = texLoader.load('assets/Warrior_Sword_Texture.png');
+        const swordTex = loadTexture('assets/Warrior_Sword_Texture.png');
         swordTex.flipY = false;
-        swordTex.colorSpace = THREE.SRGBColorSpace;
         
         playerModel.traverse((child) => {
             if (child.isMesh) {
