@@ -1,0 +1,42 @@
+{
+  "voicevox": {
+    "story": {
+      "speakerId": 2,
+      "speed": 1.0
+    },
+    "quiz": {
+      "speakerId": 2,
+      "speed": 1.0
+    },
+    "feedback": {
+      "speakerId": 3,
+      "speed": 1.1
+    },
+    "action": {
+      "speakerId": 3,
+      "speed": 1.3
+    }
+  },
+  "webspeech": {
+    "story": {
+      "preferredKeywords": ["natural", "online", "nanami", "google"],
+      "rate": 1.0,
+      "pitch": 1.2
+    },
+    "quiz": {
+      "preferredKeywords": ["natural", "online", "nanami", "google"],
+      "rate": 1.0,
+      "pitch": 1.2
+    },
+    "feedback": {
+      "preferredKeywords": ["natural", "online", "nanami", "google"],
+      "rate": 1.2,
+      "pitch": 1.4
+    },
+    "action": {
+      "preferredKeywords": ["natural", "online", "google"],
+      "rate": 1.5,
+      "pitch": 1.8
+    }
+  }
+}

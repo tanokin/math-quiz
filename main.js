@@ -130,39 +130,59 @@ function typeText(element, text, speed, onComplete) {
 
 let isVoicevoxAvailable = false;
 let currentVoicevoxAudio = null;
-let bestJapaneseVoice = null;
+let voiceConfig = null;
 
-function loadVoices() {
-    if (!('speechSynthesis' in window)) return;
+async function loadVoiceConfig() {
+    try {
+        const res = await fetch('voice_config.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        voiceConfig = await res.json();
+        console.log("Voice configuration loaded successfully:", voiceConfig);
+    } catch (e) {
+        console.warn("Failed to load voice_config.json, using defaults.", e);
+        // Fallback default config if file loading fails
+        voiceConfig = {
+            voicevox: {
+                story: { speakerId: 2, speed: 1.0 },
+                quiz: { speakerId: 2, speed: 1.0 },
+                feedback: { speakerId: 3, speed: 1.1 },
+                action: { speakerId: 3, speed: 1.3 }
+            },
+            webspeech: {
+                story: { preferredKeywords: ["natural", "online", "nanami", "google"], rate: 1.0, pitch: 1.2 },
+                quiz: { preferredKeywords: ["natural", "online", "nanami", "google"], rate: 1.0, pitch: 1.2 },
+                feedback: { preferredKeywords: ["natural", "online", "nanami", "google"], rate: 1.2, pitch: 1.4 },
+                action: { preferredKeywords: ["natural", "online", "google"], rate: 1.5, pitch: 1.8 }
+            }
+        };
+    }
+}
+
+function getBestVoiceForCategory(category) {
+    if (!('speechSynthesis' in window)) return null;
     const voices = window.speechSynthesis.getVoices();
     const jaVoices = voices.filter(v => v.lang.startsWith('ja'));
+    if (jaVoices.length === 0) return null;
     
-    if (jaVoices.length === 0) {
-        bestJapaneseVoice = null;
-        return;
-    }
+    const catConfig = voiceConfig.webspeech[category] || voiceConfig.webspeech.story;
+    const keywords = catConfig.preferredKeywords || [];
     
-    // Sort voices based on premium keywords
+    // Sort voices based on preferred keywords order
     jaVoices.sort((a, b) => {
         const getScore = (voice) => {
             const name = voice.name.toLowerCase();
             let score = 0;
-            if (name.includes('natural')) score += 10;
-            if (name.includes('online')) score += 5;
-            if (name.includes('google')) score += 3;
-            if (name.includes('neural')) score += 2;
+            keywords.forEach((keyword, index) => {
+                if (name.includes(keyword.toLowerCase())) {
+                    score += (keywords.length - index) * 10;
+                }
+            });
             return score;
         };
         return getScore(b) - getScore(a);
     });
     
-    bestJapaneseVoice = jaVoices[0];
-    console.log("Selected best Japanese voice:", bestJapaneseVoice ? bestJapaneseVoice.name : "None");
-}
-
-if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    loadVoices();
+    return jaVoices[0];
 }
 
 async function checkVoicevox() {
@@ -203,8 +223,7 @@ function cancelSpeech() {
     }
 }
 
-async function speakVoicevox(text, speed = 1.0) {
-    const speakerId = 3; // Zundamon
+async function speakVoicevox(text, speakerId = 3, speed = 1.0) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
     
@@ -263,12 +282,14 @@ async function speakVoicevox(text, speed = 1.0) {
     }
 }
 
-function speakWebSpeech(text, rate = 1.0, pitch = 1.2, volume = 1.0) {
+function speakWebSpeech(text, category, rate = 1.0, pitch = 1.2, volume = 1.0) {
     if (!('speechSynthesis' in window)) return;
     const ut = new SpeechSynthesisUtterance(text);
     ut.lang = 'ja-JP';
-    if (bestJapaneseVoice) {
-        ut.voice = bestJapaneseVoice;
+    
+    const voice = getBestVoiceForCategory(category);
+    if (voice) {
+        ut.voice = voice;
     }
     ut.rate = rate;
     ut.pitch = pitch;
@@ -276,29 +297,37 @@ function speakWebSpeech(text, rate = 1.0, pitch = 1.2, volume = 1.0) {
     window.speechSynthesis.speak(ut);
 }
 
-function speak(text) {
+function speak(text, category = 'story') {
     cancelSpeech();
+    
+    const voxConfig = voiceConfig.voicevox[category] || voiceConfig.voicevox.story;
+    const wsConfig = voiceConfig.webspeech[category] || voiceConfig.webspeech.story;
+    
     if (isVoicevoxAvailable) {
-        speakVoicevox(text, 1.0).catch(err => {
-            console.warn("VOICEVOX speak failed, falling back to Web Speech API:", err);
-            speakWebSpeech(text, 1.0, 1.2);
+        speakVoicevox(text, voxConfig.speakerId, voxConfig.speed).catch(err => {
+            console.warn(`VOICEVOX speak failed for category ${category}, falling back to Web Speech:`, err);
+            speakWebSpeech(text, category, wsConfig.rate, wsConfig.pitch);
         });
     } else {
-        speakWebSpeech(text, 1.0, 1.2);
+        speakWebSpeech(text, category, wsConfig.rate, wsConfig.pitch);
     }
 }
 
-function speakAction(text) {
+function speakAction(text, category = 'action') {
     if (gameState === 'QUIZ') return;
     if (gameState === 'EXPLORE' || gameState === 'CELEBRATE') {
         cancelSpeech();
+        
+        const voxConfig = voiceConfig.voicevox[category] || voiceConfig.voicevox.action;
+        const wsConfig = voiceConfig.webspeech[category] || voiceConfig.webspeech.action;
+        
         if (isVoicevoxAvailable) {
-            speakVoicevox(text, 1.3).catch(err => {
-                console.warn("VOICEVOX speakAction failed, falling back to Web Speech API:", err);
-                speakWebSpeech(text, 1.5, 1.8, 0.5);
+            speakVoicevox(text, voxConfig.speakerId, voxConfig.speed).catch(err => {
+                console.warn(`VOICEVOX speakAction failed for category ${category}, falling back to Web Speech:`, err);
+                speakWebSpeech(text, category, wsConfig.rate, wsConfig.pitch, 0.5);
             });
         } else {
-            speakWebSpeech(text, 1.5, 1.8, 0.5);
+            speakWebSpeech(text, category, wsConfig.rate, wsConfig.pitch, 0.5);
         }
     }
 }
@@ -482,6 +511,7 @@ async function loadLevelsConfig() {
 
 async function init() {
     await loadLevelsConfig();
+    await loadVoiceConfig();
 
     // 全レベル・プレイヤーのテクスチャを集計して一括プレロード
     const texturesToPreload = [
@@ -631,10 +661,10 @@ function startStorySequence() {
     }, { once: true });
 
     typeText(p1, text1, 80, () => {
-        speak(text1);
+        speak(text1, 'story');
         setTimeout(() => {
             typeText(p2, text2, 80, () => {
-                speak(text2);
+                speak(text2, 'story');
                 btn.classList.remove('hidden');
             });
         }, 1500);
@@ -902,7 +932,7 @@ function performAttack() {
     isAttacking = true;
     attackTimer = 0.5;
     playSound('swing');
-    speakAction('やあっ！');
+    speakAction('やあっ！', 'action');
 
     playAnim('attack');
 
@@ -939,7 +969,7 @@ function performJump() {
     isJumping = true;
     velocityY = JUMP_POWER;
     playSound('swing'); // Whoosh sound for jump
-    speakAction('えいっ！');
+    speakAction('えいっ！', 'action');
 }
 
 function createPlayer() {
@@ -1121,7 +1151,7 @@ function triggerQuiz() {
     
     answerButtons.classList.add('hidden'); // Hide buttons while typing
     
-    speak(currentQuestion.readText);
+    speak(currentQuestion.readText, 'quiz');
     
     typeText(qText, currentQuestion.q, 60, () => {
         // Show options
@@ -1142,7 +1172,7 @@ function handleAnswer(selectedAns) {
     
     if (isCorrect) {
         playSound('correct');
-        speak("せいかい！");
+        speak("せいかい！", 'feedback');
         correctAnswersInLevel++;
         updateProgressUI();
         
@@ -1186,7 +1216,7 @@ function handleAnswer(selectedAns) {
         }
     } else {
         playSound('damage');
-        speak("ざんねん、ちがいます");
+        speak("ざんねん、ちがいます", 'feedback');
         takeDamage(20);
         
         document.getElementById('quiz-ui').classList.add('hidden');
