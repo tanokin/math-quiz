@@ -128,27 +128,178 @@ function typeText(element, text, speed, onComplete) {
     type();
 }
 
-function speak(text) {
+let isVoicevoxAvailable = false;
+let currentVoicevoxAudio = null;
+let bestJapaneseVoice = null;
+
+function loadVoices() {
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices();
+    const jaVoices = voices.filter(v => v.lang.startsWith('ja'));
+    
+    if (jaVoices.length === 0) {
+        bestJapaneseVoice = null;
+        return;
+    }
+    
+    // Sort voices based on premium keywords
+    jaVoices.sort((a, b) => {
+        const getScore = (voice) => {
+            const name = voice.name.toLowerCase();
+            let score = 0;
+            if (name.includes('natural')) score += 10;
+            if (name.includes('online')) score += 5;
+            if (name.includes('google')) score += 3;
+            if (name.includes('neural')) score += 2;
+            return score;
+        };
+        return getScore(b) - getScore(a);
+    });
+    
+    bestJapaneseVoice = jaVoices[0];
+    console.log("Selected best Japanese voice:", bestJapaneseVoice ? bestJapaneseVoice.name : "None");
+}
+
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+}
+
+async function checkVoicevox() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    try {
+        const res = await fetch('http://localhost:50021/version', {
+            signal: controller.signal,
+            method: 'GET'
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+            isVoicevoxAvailable = true;
+            console.log("VOICEVOX detected! Using premium AI character voices.");
+        } else {
+            isVoicevoxAvailable = false;
+            console.log("VOICEVOX responded with an error. Falling back to Web Speech API.");
+        }
+    } catch (e) {
+        clearTimeout(timeoutId);
+        isVoicevoxAvailable = false;
+        console.log("VOICEVOX not running. Falling back to Web Speech API.");
+    }
+}
+
+function cancelSpeech() {
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const ut = new SpeechSynthesisUtterance(text);
-        ut.lang = 'ja-JP';
-        ut.rate = 1.0;
-        ut.pitch = 1.2;
-        window.speechSynthesis.speak(ut);
+    }
+    if (currentVoicevoxAudio) {
+        try {
+            currentVoicevoxAudio.pause();
+            currentVoicevoxAudio.currentTime = 0;
+        } catch (e) {
+            // Ignore error
+        }
+        currentVoicevoxAudio = null;
+    }
+}
+
+async function speakVoicevox(text, speed = 1.0) {
+    const speakerId = 3; // Zundamon
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    
+    try {
+        const queryUrl = `http://localhost:50021/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`;
+        const queryRes = await fetch(queryUrl, {
+            method: 'POST',
+            signal: controller.signal
+        });
+        if (!queryRes.ok) throw new Error(`Query failed: ${queryRes.status}`);
+        
+        const queryJson = await queryRes.json();
+        clearTimeout(timeoutId);
+        
+        queryJson.speedScale = speed;
+        
+        const synthController = new AbortController();
+        const synthTimeoutId = setTimeout(() => synthController.abort(), 3000);
+        
+        const synthUrl = `http://localhost:50021/synthesis?speaker=${speakerId}`;
+        const synthRes = await fetch(synthUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(queryJson),
+            signal: synthController.signal
+        });
+        if (!synthRes.ok) throw new Error(`Synthesis failed: ${synthRes.status}`);
+        
+        const audioBlob = await synthRes.blob();
+        clearTimeout(synthTimeoutId);
+        
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        currentVoicevoxAudio = audio;
+        
+        return new Promise((resolve, reject) => {
+            audio.onended = () => {
+                if (currentVoicevoxAudio === audio) {
+                    currentVoicevoxAudio = null;
+                }
+                resolve();
+            };
+            audio.onerror = (err) => {
+                if (currentVoicevoxAudio === audio) {
+                    currentVoicevoxAudio = null;
+                }
+                reject(err);
+            };
+            audio.play().catch(reject);
+        });
+    } catch (e) {
+        clearTimeout(timeoutId);
+        throw e;
+    }
+}
+
+function speakWebSpeech(text, rate = 1.0, pitch = 1.2, volume = 1.0) {
+    if (!('speechSynthesis' in window)) return;
+    const ut = new SpeechSynthesisUtterance(text);
+    ut.lang = 'ja-JP';
+    if (bestJapaneseVoice) {
+        ut.voice = bestJapaneseVoice;
+    }
+    ut.rate = rate;
+    ut.pitch = pitch;
+    ut.volume = volume;
+    window.speechSynthesis.speak(ut);
+}
+
+function speak(text) {
+    cancelSpeech();
+    if (isVoicevoxAvailable) {
+        speakVoicevox(text, 1.0).catch(err => {
+            console.warn("VOICEVOX speak failed, falling back to Web Speech API:", err);
+            speakWebSpeech(text, 1.0, 1.2);
+        });
+    } else {
+        speakWebSpeech(text, 1.0, 1.2);
     }
 }
 
 function speakAction(text) {
-    if ('speechSynthesis' in window && (gameState === 'EXPLORE' || gameState === 'CELEBRATE')) {
-        if (gameState === 'QUIZ') return;
-        window.speechSynthesis.cancel();
-        const ut = new SpeechSynthesisUtterance(text);
-        ut.lang = 'ja-JP';
-        ut.rate = 1.5;
-        ut.pitch = 1.8;
-        ut.volume = 0.5;
-        window.speechSynthesis.speak(ut);
+    if (gameState === 'QUIZ') return;
+    if (gameState === 'EXPLORE' || gameState === 'CELEBRATE') {
+        cancelSpeech();
+        if (isVoicevoxAvailable) {
+            speakVoicevox(text, 1.3).catch(err => {
+                console.warn("VOICEVOX speakAction failed, falling back to Web Speech API:", err);
+                speakWebSpeech(text, 1.5, 1.8, 0.5);
+            });
+        } else {
+            speakWebSpeech(text, 1.5, 1.8, 0.5);
+        }
     }
 }
 
@@ -452,6 +603,9 @@ async function init() {
 
     // Initial state
     gameState = 'START';
+
+    // Check if VOICEVOX is running locally
+    checkVoicevox();
 }
 
 function autoSave() {
