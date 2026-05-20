@@ -200,12 +200,9 @@ function getBestVoiceForCategory(category) {
                     score += (keywords.length - index) * 10;
                 }
             });
-            // iOS/Safariで極めて自然な発話ができるSiri音声や拡張（Enhanced）音声を最優先するためのボーナススコア
-            if (name.includes('siri')) {
-                score += 15; // Siriは非常に高品質なニューラル音声
-            }
+            // 設定ファイル(preferredKeywords)の優先順位を厳格に尊重する
             if (name.includes('enhanced') || name.includes('拡張')) {
-                score += 8;  // ダウンロード済みの高品質拡張音声
+                score += 8;  // ローカル環境での高品質な拡張音声の優先ボーナス
             }
             return score;
         };

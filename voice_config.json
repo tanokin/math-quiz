@@ -19,17 +19,17 @@
   },
   "webspeech": {
     "story": {
-      "preferredKeywords": ["natural", "online", "nanami", "siri", "kyoko", "google"],
+      "preferredKeywords": ["natural", "online", "nanami", "kyoko", "google"],
       "rate": 1.0,
       "pitch": 1.2
     },
     "quiz": {
-      "preferredKeywords": ["natural", "online", "nanami", "siri", "kyoko", "google"],
+      "preferredKeywords": ["natural", "online", "nanami", "kyoko", "google"],
       "rate": 1.0,
       "pitch": 1.2
     },
     "feedback": {
-      "preferredKeywords": ["natural", "online", "nanami", "siri", "kyoko", "google"],
+      "preferredKeywords": ["natural", "online", "nanami", "kyoko", "google"],
       "rate": 1.2,
       "pitch": 1.4
     },
