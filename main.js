@@ -153,6 +153,7 @@ if ('speechSynthesis' in window) {
 
 let isVoicevoxAvailable = false;
 let currentVoicevoxAudio = null;
+let voiceAssetPlayer = null; // 【NEW】グローバルで単一のオーディオ要素を使い回し、iOSの非同期再生ブロックを回避する
 let voiceConfig = null;
 let voiceMap = null;
 
@@ -335,6 +336,12 @@ function unlockAudio() {
     if (audioCtx && audioCtx.state === 'suspended') {
         audioCtx.resume();
     }
+    
+    // 【NEW】HTML5 Audio の iOS 再生制限解除（アクティベート）
+    if (!voiceAssetPlayer) {
+        voiceAssetPlayer = new Audio();
+    }
+    voiceAssetPlayer.load(); // ユーザー操作の同期的文脈でロードを実行し、再生制限を解除しておく
 }
 
 function speakWebSpeech(text, category, rate = 1.0, pitch = 1.2, volume = 1.0) {
@@ -424,9 +431,17 @@ function speak(text, category = 'story') {
     const assetFile = findVoiceAsset(text, category);
     if (assetFile) {
         console.log(`[VoiceAsset] Playing mapped asset: ${assetFile}`);
-        const audio = new Audio(assetFile);
-        currentVoicevoxAudio = audio; // cancelSpeechで停止可能にするために格納
-        audio.play().catch(err => {
+        if (!voiceAssetPlayer) {
+            voiceAssetPlayer = new Audio();
+        }
+        try {
+            voiceAssetPlayer.pause();
+        } catch (e) {}
+        
+        voiceAssetPlayer.src = assetFile;
+        currentVoicevoxAudio = voiceAssetPlayer; // cancelSpeechで停止可能にするために格納
+        
+        voiceAssetPlayer.play().catch(err => {
             console.warn(`[VoiceAsset] Failed to play audio asset, falling back to synthesizer:`, err);
             fallbackToSynthesizer(text, category);
         });
