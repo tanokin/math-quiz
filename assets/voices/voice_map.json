@@ -1,0 +1,47 @@
+{
+  "story": {
+    "story_1": {
+      "text": "たいへんです！おひめさまが わるいモンスターの のろいで カエルに かえられてしまいました！",
+      "file": "assets/voices/story_1.mp3"
+    },
+    "story_2": {
+      "text": "ひろいダンジョンに かくされた「ちしきのクリスタル」を 5つ さがしだし、クイズに せいかいして のろいを といてください！",
+      "file": "assets/voices/story_2.mp3"
+    }
+  },
+  "feedback": {
+    "correct": {
+      "text": "せいかい！",
+      "file": "assets/voices/correct.mp3"
+    },
+    "incorrect": {
+      "text": "ざんねん、ちがいます",
+      "file": "assets/voices/incorrect.mp3"
+    },
+    "timeout": {
+      "text": "じかんぎれです！",
+      "file": "assets/voices/timeout.mp3"
+    }
+  },
+  "quiz": {
+    "comment": "クイズ用の動的音声マッピングの例です。A_plus_B または A_minus_B などの形式で登録、もしくは問題テキストをキーにできます。",
+    "templates": {
+      "plus_pattern": "A_plus_B",
+      "minus_pattern": "A_minus_B"
+    },
+    "mappings": {
+      "1_plus_1": {
+        "text": "1 たす 1 は なに？",
+        "file": "assets/voices/quiz_1_plus_1.mp3"
+      },
+      "5_plus_3": {
+        "text": "5 たす 3 は なに？",
+        "file": "assets/voices/quiz_5_plus_3.mp3"
+      },
+      "10_minus_4": {
+        "text": "10 ひく 4 は なに？",
+        "file": "assets/voices/quiz_10_minus_4.mp3"
+      }
+    }
+  }
+}

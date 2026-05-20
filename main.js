@@ -154,6 +154,19 @@ if ('speechSynthesis' in window) {
 let isVoicevoxAvailable = false;
 let currentVoicevoxAudio = null;
 let voiceConfig = null;
+let voiceMap = null;
+
+async function loadVoiceMap() {
+    try {
+        const res = await fetch(`assets/voices/voice_map.json?cb=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        voiceMap = await res.json();
+        console.log("Voice map loaded successfully:", voiceMap);
+    } catch (e) {
+        console.warn("Failed to load voice_map.json, using fallback empty map.", e);
+        voiceMap = { story: {}, feedback: {}, quiz: { mappings: {} } };
+    }
+}
 
 async function loadVoiceConfig() {
     try {
@@ -359,9 +372,71 @@ function speakWebSpeech(text, category, rate = 1.0, pitch = 1.2, volume = 1.0) {
     window.speechSynthesis.speak(ut);
 }
 
+function findVoiceAsset(text, category) {
+    if (!voiceMap) return null;
+    
+    // 1. 固定テキスト (story / feedback) のマッチング
+    if (category === 'story' && voiceMap.story) {
+        for (const key in voiceMap.story) {
+            const entry = voiceMap.story[key];
+            if (entry.text === text || text.includes(entry.text) || entry.text.includes(text)) {
+                return entry.file;
+            }
+        }
+    }
+    
+    if (category === 'feedback' && voiceMap.feedback) {
+        for (const key in voiceMap.feedback) {
+            const entry = voiceMap.feedback[key];
+            if (entry.text === text) {
+                return entry.file;
+            }
+        }
+    }
+    
+    // 2. 動的クイズ問題 (quiz) の自動数字・演算子マッピング
+    if (category === 'quiz' && voiceMap.quiz && voiceMap.quiz.mappings) {
+        const isPlus = text.includes('たす') || text.includes('＋') || text.includes('もらう') || text.includes('たおす');
+        const isMinus = text.includes('ひく') || text.includes('－') || text.includes('たべる') || text.includes('つかう');
+        
+        const numbers = text.match(/\d+/g);
+        if (numbers && numbers.length >= 2) {
+            const a = numbers[0];
+            const b = numbers[1];
+            const op = isPlus ? 'plus' : (isMinus ? 'minus' : null);
+            if (op) {
+                const key = `${a}_${op}_${b}`;
+                const entry = voiceMap.quiz.mappings[key];
+                if (entry) {
+                    return entry.file;
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
 function speak(text, category = 'story') {
     cancelSpeech();
     
+    // 音声マップに登録された高品質アセットファイル（mp3/wav）がある場合は優先再生
+    const assetFile = findVoiceAsset(text, category);
+    if (assetFile) {
+        console.log(`[VoiceAsset] Playing mapped asset: ${assetFile}`);
+        const audio = new Audio(assetFile);
+        currentVoicevoxAudio = audio; // cancelSpeechで停止可能にするために格納
+        audio.play().catch(err => {
+            console.warn(`[VoiceAsset] Failed to play audio asset, falling back to synthesizer:`, err);
+            fallbackToSynthesizer(text, category);
+        });
+        return;
+    }
+    
+    fallbackToSynthesizer(text, category);
+}
+
+function fallbackToSynthesizer(text, category) {
     const voxConfig = voiceConfig.voicevox[category] || voiceConfig.voicevox.story;
     const wsConfig = voiceConfig.webspeech[category] || voiceConfig.webspeech.story;
     
@@ -574,6 +649,7 @@ async function loadLevelsConfig() {
 async function init() {
     await loadLevelsConfig();
     await loadVoiceConfig();
+    await loadVoiceMap();
 
     // 全レベル・プレイヤーのテクスチャを集計して一括プレロード
     const texturesToPreload = [
