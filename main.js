@@ -128,6 +128,16 @@ function typeText(element, text, speed, onComplete) {
     type();
 }
 
+// 起動時に音声合成のロードを促す（iOS/Safari対策）
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = () => {
+            console.log("Web Speech API Voices loaded successfully.");
+        };
+    }
+}
+
 let isVoicevoxAvailable = false;
 let currentVoicevoxAudio = null;
 let voiceConfig = null;
@@ -149,10 +159,10 @@ async function loadVoiceConfig() {
                 action: { speakerId: 3, speed: 1.3 }
             },
             webspeech: {
-                story: { preferredKeywords: ["natural", "online", "nanami", "google"], rate: 1.0, pitch: 1.2 },
-                quiz: { preferredKeywords: ["natural", "online", "nanami", "google"], rate: 1.0, pitch: 1.2 },
-                feedback: { preferredKeywords: ["natural", "online", "nanami", "google"], rate: 1.2, pitch: 1.4 },
-                action: { preferredKeywords: ["natural", "online", "google"], rate: 1.5, pitch: 1.8 }
+                story: { preferredKeywords: ["natural", "online", "nanami", "siri", "kyoko", "google"], rate: 1.0, pitch: 1.2 },
+                quiz: { preferredKeywords: ["natural", "online", "nanami", "siri", "kyoko", "google"], rate: 1.0, pitch: 1.2 },
+                feedback: { preferredKeywords: ["natural", "online", "nanami", "siri", "kyoko", "google"], rate: 1.2, pitch: 1.4 },
+                action: { preferredKeywords: ["natural", "online", "keita", "otoya", "google"], rate: 1.5, pitch: 1.8 }
             }
         };
     }
@@ -161,7 +171,7 @@ async function loadVoiceConfig() {
 function getBestVoiceForCategory(category) {
     if (!('speechSynthesis' in window)) return null;
     const voices = window.speechSynthesis.getVoices();
-    const jaVoices = voices.filter(v => v.lang.startsWith('ja'));
+    const jaVoices = voices.filter(v => v.lang.toLowerCase().includes('ja'));
     if (jaVoices.length === 0) return null;
     
     const catConfig = voiceConfig.webspeech[category] || voiceConfig.webspeech.story;
@@ -177,11 +187,19 @@ function getBestVoiceForCategory(category) {
                     score += (keywords.length - index) * 10;
                 }
             });
+            // iOS/Safariで極めて自然な発話ができるSiri音声や拡張（Enhanced）音声を最優先するためのボーナススコア
+            if (name.includes('siri')) {
+                score += 15; // Siriは非常に高品質なニューラル音声
+            }
+            if (name.includes('enhanced') || name.includes('拡張')) {
+                score += 8;  // ダウンロード済みの高品質拡張音声
+            }
             return score;
         };
         return getScore(b) - getScore(a);
     });
     
+    console.log(`[WebSpeech] Selected voice for ${category}:`, jaVoices[0].name);
     return jaVoices[0];
 }
 
