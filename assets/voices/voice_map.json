@@ -2,25 +2,25 @@
   "story": {
     "story_1": {
       "text": "たいへんです！おひめさまが わるいモンスターの のろいで カエルに かえられてしまいました！",
-      "file": "assets/voices/story_1.mp3"
+      "file": "assets/voices/story_1.wav"
     },
     "story_2": {
       "text": "ひろいダンジョンに かくされた「ちしきのクリスタル」を 5つ さがしだし、クイズに せいかいして のろいを といてください！",
-      "file": "assets/voices/story_2.mp3"
+      "file": "assets/voices/story_2.wav"
     }
   },
   "feedback": {
     "correct": {
       "text": "せいかい！",
-      "file": "assets/voices/correct.mp3"
+      "file": "assets/voices/correct.wav"
     },
     "incorrect": {
       "text": "ざんねん、ちがいます",
-      "file": "assets/voices/incorrect.mp3"
+      "file": "assets/voices/incorrect.wav"
     },
     "timeout": {
       "text": "じかんぎれです！",
-      "file": "assets/voices/timeout.mp3"
+      "file": "assets/voices/timeout.wav"
     }
   },
   "quiz": {
@@ -32,15 +32,15 @@
     "mappings": {
       "1_plus_1": {
         "text": "1 たす 1 は なに？",
-        "file": "assets/voices/quiz_1_plus_1.mp3"
+        "file": "assets/voices/quiz_1_plus_1.wav"
       },
       "5_plus_3": {
         "text": "5 たす 3 は なに？",
-        "file": "assets/voices/quiz_5_plus_3.mp3"
+        "file": "assets/voices/quiz_5_plus_3.wav"
       },
       "10_minus_4": {
         "text": "10 ひく 4 は なに？",
-        "file": "assets/voices/quiz_10_minus_4.mp3"
+        "file": "assets/voices/quiz_10_minus_4.wav"
       }
     }
   }
