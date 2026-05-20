@@ -643,9 +643,9 @@ function loadLevel(levelIndex, isResume = false) {
 
     // Platform helper
     function createPlatform(x, y, z, w, d, h, isMoving = false, moveAxis = 'x') {
-        const topTex = getTextureWithRepeat(config.floor, Math.max(1, w/5), Math.max(1, d/5));
-        const sideTexX = getTextureWithRepeat(config.wall, Math.max(1, d/5), Math.max(1, h/5));
-        const sideTexZ = getTextureWithRepeat(config.wall, Math.max(1, w/5), Math.max(1, h/5));
+        const topTex = getTextureWithRepeat(config.textures.floor, Math.max(1, w/5), Math.max(1, d/5));
+        const sideTexX = getTextureWithRepeat(config.textures.wall, Math.max(1, d/5), Math.max(1, h/5));
+        const sideTexZ = getTextureWithRepeat(config.textures.wall, Math.max(1, w/5), Math.max(1, h/5));
         
         const matTop = new THREE.MeshStandardMaterial({ map: topTex, roughness: 0.8 });
         const matSideX = new THREE.MeshStandardMaterial({ map: sideTexX, roughness: 0.9 });
