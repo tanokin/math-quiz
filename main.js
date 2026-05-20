@@ -21,6 +21,15 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
    - 上記を守らないと「同じ画像の多重リクエスト→未ロード状態で描画/クローン→真っ黒」が発生する。
    - GLTF モデルのテクスチャは flipY = false も必須。
 
+③ キャッシュバリア（キャッシュバスター）のルール
+   - index.html で style.css や main.js を編集・更新した際は、必ずクエリパラメータ（例: ?v1 → ?v2）をインクリメントし、モバイル端末のキャッシュによる表示遅延を防ぐこと。
+   - main.js 内で fetch() する JSON 設定ファイルには、必ずタイムスタンプ（?cb=Date.now()）を付与し、キャッシュを完全回避すること。
+
+④ スマホにおける Web Speech API 音声合成のルール
+   - iOS/Safari では getVoices() が非同期ロードされるため、起動時に getVoices() の強制取得や onvoiceschanged を監視して音声リストのロードを確実に待つこと。
+   - 音声ソートロジック getBestVoiceForCategory() を維持し、各環境の最高品質の音声（Siri や Natural/Online、Enhanced 音声）が自動選択されるロジックを担保すること。
+   - スマホなどの VOICEVOX 未起動環境でもエラーを出さず、Web Speech API にシームレスにフォールバックさせること。
+
 =============================================================================
 */
 let scene, camera, renderer;
