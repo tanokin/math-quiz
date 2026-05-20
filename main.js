@@ -134,7 +134,7 @@ let voiceConfig = null;
 
 async function loadVoiceConfig() {
     try {
-        const res = await fetch('voice_config.json');
+        const res = await fetch(`voice_config.json?cb=${Date.now()}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         voiceConfig = await res.json();
         console.log("Voice configuration loaded successfully:", voiceConfig);
@@ -499,7 +499,7 @@ init();
 
 async function loadLevelsConfig() {
     try {
-        const res = await fetch('levels.json');
+        const res = await fetch(`levels.json?cb=${Date.now()}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         LEVELS = data.levels;
