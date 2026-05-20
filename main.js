@@ -943,6 +943,7 @@ function loadLevel(levelIndex, isResume = false) {
     player.position.set(ps.x, ps.y, ps.z);
     player.rotation.set(0, Math.PI, 0);
     gameState = 'EXPLORE';
+    document.getElementById('controls').classList.remove('hidden');
 }
 
 function spawnMonster(xPos, zPos, yPos = 0) {
@@ -1216,6 +1217,7 @@ function triggerQuiz() {
     const qText = document.getElementById('question-text');
     
     ui.classList.remove('hidden');
+    document.getElementById('controls').classList.add('hidden'); // クイズ表示中はアクションコントロールを非表示にしてUI崩れを防ぐ
     document.getElementById('instruction-text').innerHTML = "ただしい こたえを えらんでね！";
     
     const config = LEVELS[currentLevelIdx];
@@ -1284,6 +1286,7 @@ function handleAnswer(selectedAns) {
             setTimeout(() => {
                 gameState = 'EXPLORE';
                 document.getElementById('instruction-text').innerHTML = "クリスタルを さがしてね！";
+                document.getElementById('controls').classList.remove('hidden'); // 探索に戻る際にコントロールを表示
             }, 2000);
         }
     } else {
@@ -1296,6 +1299,7 @@ function handleAnswer(selectedAns) {
         document.getElementById('instruction-text').innerHTML = "クリスタルを さがしてね！";
         
         gameState = 'EXPLORE';
+        document.getElementById('controls').classList.remove('hidden'); // 探索に戻る際にコントロールを表示
     }
 }
 
